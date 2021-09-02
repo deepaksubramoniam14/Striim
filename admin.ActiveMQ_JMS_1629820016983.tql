@@ -1,0 +1,57 @@
+
+CREATE APPLICATION ActiveMQ_JMS;
+
+CREATE OR REPLACE SOURCE OracleSrcJms USING Global.OracleReader ( 
+  TransactionBufferDiskLocation: '.striim/LargeBuffer', 
+  adapterName: 'OracleReader', 
+  OutboundServerProcessName: 'WebActionXStream', 
+  DatabaseRole: 'PRIMARY', 
+  DDLCaptureMode: 'All', 
+  Compression: false, 
+  Tables: 'STRIIM.CUSTOMERS_1', 
+  ReaderType: 'LogMiner', 
+  connectionRetryPolicy: 'timeOut=30, retryInterval=30, maxRetries=3', 
+  Password_encrypted: 'false', 
+  SupportPDB: false, 
+  QuiesceMarkerTable: 'QUIESCEMARKER', 
+  FetchSize: 5, 
+  CommittedTransactions: true, 
+  QueueSize: 2048, 
+  XstreamTimeOut: 600, 
+  DictionaryMode: 'OnlineCatalog', 
+  Username: 'striim', 
+  TransactionBufferSpilloverSize: '1MB', 
+  ConnectionURL: 'jdbc:oracle:thin:@localhost:1521/orcl', 
+  TransactionBufferType: 'Memory', 
+  FilterTransactionBoundaries: true, 
+  SendBeforeImage: true, 
+  Password: 'oQ7AuMLFPz55u3k4kRRHTA==' ) 
+OUTPUT TO OracleSrcJmsOut;
+
+CREATE OR REPLACE CQ FromOracleSrcJms 
+INSERT INTO CqDataOut 
+SELECT data[0] as CUSTOMER_ID, data[1] as NAME, data[2] as ADDRESS, data[3] as WEBSITE, data[4] as CREDIT_LIMIT FROM OracleSrcJmsOut o;
+
+CREATE OR REPLACE TARGET JmsWriterTgt USING Global.JMSWriter ( 
+  adapterName: 'JMSWriter', 
+  Provider: 'tcp://localhost:61616', 
+  Topic: 'dynamicTopics/testTopic', 
+  Password: '26Wse/cMWAVdSTZSB3Hrag==', 
+  UserName: 'admin', 
+  Ctx: 'org.apache.activemq.jndi.ActiveMQInitialContextFactory', 
+  Password_encrypted: 'false', 
+  messagetype: 'TextMessage' ) 
+FORMAT USING Global.DSVFormatter  ( 
+  quotecharacter: '\"', 
+  handler: 'com.webaction.proc.DSVFormatter', 
+  columndelimiter: ',', 
+  formatterName: 'DSVFormatter', 
+  nullvalue: 'NULL', 
+  usequotes: 'false', 
+  rowdelimiter: '\n', 
+  standard: 'none', 
+  header: 'false' ) 
+INPUT FROM CqDataOut;
+
+END APPLICATION ActiveMQ_JMS;
+

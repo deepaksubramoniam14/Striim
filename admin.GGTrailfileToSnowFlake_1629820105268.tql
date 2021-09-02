@@ -1,0 +1,21 @@
+
+CREATE APPLICATION GGTrailfileToSnowFlake;
+
+CREATE OR REPLACE SOURCE GGTrailFileToSnowFlake USING Global.GGTrailReader ( 
+  SupportColumnCharset: false, 
+  DefinitionFile: 'E:\\\\Striim_3.10.3.2\\Trail File\\metagp.def', 
+  TrailDirectory: 'E:\\\\Striim_3.10.3.2\\Trail File\\', 
+  Compression: false, 
+  TrailFilePattern: 'gp*', 
+  FilterTransactionBoundaries: true, 
+  Tables: '%;', 
+  adapterName: 'GGTrailReader', 
+  TrailByteOrder: 'LittleEndian' ) 
+OUTPUT TO GGTrailFileToSnowFlake_out;
+
+CREATE OR REPLACE CQ CQ_GGTrailFileToSnowFlake 
+INSERT INTO CQ_GGTrailFileToSnowFlake_out 
+SELECT data[0] as C_W_ID, data[1] as C_D_ID, data[2] as C_ID, data[3] as C_DISCOUNT,data[4] as C_CREDIT, data[5] as C_LAST, data[6] as C_FIRST, data[7] as C_CREDIT_LIM,data[8] as C_BALANCE, data[9] as C_YTD_PAYMENT,data[10] as C_PAYMENT_CNT, data[11] as C_DELIVERY_CNT,data[12] as C_STREET_1, data[13] as C_STREET_2,data[14] as C_CITY, data[14] as C_STATE,data[15] as C_ZIP,data[16] as C_PHONE, data[17] as C_SINCE,data[18] as C_MIDDLE,data[19] as C_DATA FROM GGTrailFileToSnowFlake_out g;
+
+END APPLICATION GGTrailfileToSnowFlake;
+

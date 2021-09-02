@@ -1,0 +1,44 @@
+
+CREATE APPLICATION CDCMSSQLtoSnowFlake RECOVERY 1 MINUTE INTERVAL;
+
+CREATE OR REPLACE SOURCE cdc_mssql_snowflake_src_ip USING Global.MSSqlReader ( 
+  TransactionSupport: false, 
+  Password: '0i9+i5sVj3tqk9b98B0Z4A==', 
+  Tables: 'DBO.EMP_CDC;', 
+  FetchTransactionMetadata: false, 
+  Compression: false, 
+  connectionRetryPolicy: 'timeOut=30, retryInterval=30, maxRetries=3', 
+  Password_encrypted: 'false', 
+  StartPosition: 'LSN:0x000000700000277800CB', 
+  ConnectionURL: 'jdbc:sqlserver://localhost:1433;DatabaseName=striim', 
+  DatabaseName: 'striim', 
+  Fetchsize: 0, 
+  adapterName: 'MSSqlReader', 
+  ConnectionPoolSize: 10, 
+  cdcRoleName: 'STRIIM_READER', 
+  Username: 'sa', 
+  FilterTransactionBoundaries: true, 
+  SendBeforeImage: true, 
+  AutoDisableTableCDC: false ) 
+OUTPUT TO cdc_mssql_snowflake_src_op;
+
+CREATE OR REPLACE TARGET cdc_mssql_snowflake_wrtr USING Global.SnowflakeWriter ( 
+  password_encrypted: 'false', 
+  tables: 'STRIIM.DBO.EMP_CDC,STRIIM.STRIIM.EMP_CDC;', 
+  azureContainerName: 'striim-snowflake-container', 
+  optimizedMerge: 'false', 
+  columnDelimiter: '|', 
+  s3Region: 'us-west-1', 
+  appendOnly: 'false', 
+  password: 'xeolis5XND+NaPLzUmOmfQ==', 
+  externalStageType: 'Local', 
+  adapterName: 'SnowflakeWriter', 
+  connectionUrl: 'jdbc:snowflake://xza51554.snowflakecomputing.com/?db=STRIIM&schema=STRIIM', 
+  uploadPolicy: 'eventcount:1,interval:5s', 
+  fileFormatOptions: 'null_if = \"\"', 
+  username: 'STRIIMGCP10', 
+  s3BucketName: 'striim-snowflake-bucket' ) 
+INPUT FROM cdc_mssql_snowflake_src_op;
+
+END APPLICATION CDCMSSQLtoSnowFlake;
+

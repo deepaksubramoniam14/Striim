@@ -1,0 +1,47 @@
+
+CREATE APPLICATION OracleToPostgresCDC;
+
+CREATE SOURCE OracletoPostgresCDC_Src USING Global.OracleReader ( 
+  TransactionBufferDiskLocation: '.striim/LargeBuffer', 
+  OutboundServerProcessName: 'WebActionXStream', 
+  DDLCaptureMode: 'All', 
+  Compression: false, 
+  ReaderType: 'LogMiner', 
+  connectionRetryPolicy: 'timeOut=30, retryInterval=30, maxRetries=3', 
+  Password_encrypted: 'true', 
+  SupportPDB: false, 
+  QuiesceMarkerTable: 'QUIESCEMARKER', 
+  FetchSize: 1000, 
+  Username: 'striim', 
+  DictionaryMode: 'OnlineCatalog', 
+  QueueSize: 2048, 
+  CommittedTransactions: true, 
+  XstreamTimeOut: 600, 
+  TransactionBufferSpilloverSize: '1MB', 
+  Tables: 'STRIIM.EMP', 
+  ConnectionURL: 'jdbc:oracle:thin:@localhost:1521/orcl', 
+  TransactionBufferType: 'Memory', 
+  FilterTransactionBoundaries: true, 
+  SendBeforeImage: true, 
+  Password: 'oQ7AuMLFPz55u3k4kRRHTA==', 
+  DatabaseRole: 'Primary' ) 
+OUTPUT TO OracletoPostgresCDC_Srcout;
+
+CREATE TARGET OracletoPostgresCDC_TGT USING Global.DatabaseWriter ( 
+  ConnectionRetryPolicy: 'retryInterval=30, maxRetries=3', 
+  ParallelThreads: '', 
+  CheckPointTable: 'CHKPOINT', 
+  Password_encrypted: 'true', 
+  Username: 'striim', 
+  CommitPolicy: 'EventCount:1000,Interval:60', 
+  StatementCacheSize: '50', 
+  ConnectionURL: 'jdbc:postgresql://localhost:5432/striimrepo', 
+  DatabaseProviderType: 'Postgres', 
+  BatchPolicy: 'EventCount:1000,Interval:60', 
+  PreserveSourceTransactionBoundary: 'false', 
+  Tables: 'STRIIM.EMP,STRIIM.EMP', 
+  Password: 'oQ7AuMLFPz55u3k4kRRHTA==' ) 
+INPUT FROM OracletoPostgresCDC_Srcout;
+
+END APPLICATION OracleToPostgresCDC;
+

@@ -1,0 +1,42 @@
+
+CREATE APPLICATION SnowFlake2Blob;
+
+CREATE SOURCE Snowflake2blob_src USING Global.IncrementalBatchReader ( 
+  ConnectionURL: 'jdbc:snowflake://xza51554.snowflakecomputing.com/?db=STRIIM&schema=STRIIM', 
+  DatabaseProviderType: 'Default', 
+  StartPosition: '%=-1', 
+  pollingInterval: '120sec', 
+  FetchSize: 1, 
+  ReturnDateTimeAs: 'JODA', 
+  Password_encrypted: 'true', 
+  Username: 'STRIIMGCP10', 
+  Tables: 'STRIIM.EMP;', 
+  CheckColumn: 'STRIIM.EMP=EMP_ID', 
+  Password: 'xeolis5XND+NaPLzUmOmfQ==' ) 
+OUTPUT TO Snowflake2blob_op;
+
+CREATE CQ Snowflake2Blob_CQ 
+INSERT INTO Snowflake2Blob_CQ_OP 
+SELECT data[0] as EMP_ID,data[1] as EMP_NAME,data[2] as EMP_CITY FROM Snowflake2blob_op s;;
+
+CREATE TARGET TGT_Snowflake2BLOBStorage USING Global.AzureBlobWriter ( 
+  containername: 'dsubramoniam', 
+  accountaccesskey: '/LB/mm/ilTlCl2jTMWK3uQ==', 
+  compressiontype: '', 
+  blobname: 'dsubramoniam', 
+  rolloveronddl: 'true', 
+  accountaccesskey_encrypted: 'true', 
+  uploadpolicy: 'eventcount:10000,interval:5m', 
+  accountname: 'dsubramoniam' ) 
+FORMAT USING Global.DSVFormatter  ( 
+  quotecharacter: '\"', 
+  columndelimiter: ',', 
+  nullvalue: 'NULL', 
+  usequotes: 'false', 
+  rowdelimiter: '\n', 
+  standard: 'none', 
+  header: 'false' ) 
+INPUT FROM Snowflake2Blob_CQ_OP;
+
+END APPLICATION SnowFlake2Blob;
+

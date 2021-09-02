@@ -1,0 +1,48 @@
+
+CREATE APPLICATION Email_IL;
+
+CREATE SOURCE IL_EMAIL_SQL_CDC USING Global.MSSqlReader ( 
+  TransactionSupport: false, 
+  Password: '0i9+i5sVj3tqk9b98B0Z4A==', 
+  FetchTransactionMetadata: false, 
+  Compression: false, 
+  connectionRetryPolicy: 'timeOut=30, retryInterval=30, maxRetries=3', 
+  Password_encrypted: 'true', 
+  ConnectionURL: 'jdbc:sqlserver://localhost:1433;DatabaseName=striim', 
+  DatabaseName: 'striim', 
+  Fetchsize: 0, 
+  ConnectionPoolSize: 10, 
+  StartPosition: 'EOF', 
+  cdcRoleName: 'STRIIM_READER', 
+  Username: 'sa', 
+  Tables: 'DBO.EMP;', 
+  FilterTransactionBoundaries: true, 
+  SendBeforeImage: true, 
+  AutoDisableTableCDC: false ) 
+OUTPUT TO IL_EMAIL_SQL_CDC_OP;
+
+CREATE CQ IL_EMAIL_SQL_CDC_CQ 
+INSERT INTO IL_EMAIL_SQL_CDC_CQ_OP 
+SELECT data[0] as emp_id,data[1] as emp_name,data[2] as emp_city FROM IL_EMAIL_SQL_CDC_OP i;;
+
+CREATE OR REPLACE SUBSCRIPTION IL_EMAIL_SQL_CDC_EMAIL USING Global.EmailAdapter ( 
+  emailList: 'deepak.s@striim.com', 
+  starttls_enable: 'true', 
+  ccEmailList: 'deepak.s@striim.com', 
+  adapterName: 'EmailAdapter', 
+  smtpUrl: 'smtp.gmail.com', 
+  isSubscription: 'true', 
+  smtp_auth: 'true', 
+  bccEmailList: 'deepak.s@striim.com', 
+  subject: 'Testing', 
+  threadCount: '4', 
+  contentType: 'text/html; charset=utf-8', 
+  senderEmail: 'deepaksubramoniam14@gmail.com', 
+  smtpPropertiesName: 'mail', 
+  smtpPassword: 'xeolis5XND+NaPLzUmOmfQ==', 
+  smtpUser: 'striimgcp21', 
+  smtpPassword_encrypted: 'true' ) 
+INPUT FROM IL_EMAIL_SQL_CDC_CQ_OP;
+
+END APPLICATION Email_IL;
+

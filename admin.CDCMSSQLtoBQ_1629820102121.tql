@@ -1,0 +1,50 @@
+
+CREATE APPLICATION CDCMSSQLtoBQ;
+
+CREATE OR REPLACE SOURCE mssqlcdc_ip_src USING Global.MSSqlReader ( 
+  TransactionSupport: false, 
+  Password: '0i9+i5sVj3tqk9b98B0Z4A==', 
+  connectionRetryPolicy: 'timeOut=3, retryInterval=3, maxRetries=3', 
+  FetchTransactionMetadata: false, 
+  Compression: false, 
+  StartPosition: 'LSN:0x00000035000026F80034', 
+  Password_encrypted: 'false', 
+  ConnectionURL: 'jdbc:sqlserver://localhost:1433;DatabaseName=striim', 
+  DatabaseName: 'striim', 
+  adapterName: 'MSSqlReader', 
+  ConnectionPoolSize: 10, 
+  Fetchsize: 10, 
+  cdcRoleName: 'STRIIM_READER', 
+  Username: 'sa', 
+  Tables: 'dbo.EMP', 
+  FilterTransactionBoundaries: true, 
+  SendBeforeImage: true, 
+  AutoDisableTableCDC: false ) 
+OUTPUT TO mssql_bq_src_out;
+
+CREATE OR REPLACE CQ CQ_mssqltobq 
+INSERT INTO CQ_mssqltobq_out 
+SELECT data[0] as EMP_ID, data[1] as EMP_NAME,data[2] as EMP_CITY FROM mssql_bq_src_out m;
+
+CREATE OR REPLACE TARGET mssql_bq_CDC_bq USING Global.BigQueryWriter ( 
+  BatchPolicy: 'eventCount:1, Interval:3', 
+  ColumnDelimiter: '|', 
+  NullMarker: 'NULL', 
+  streamingUpload: 'false', 
+  Encoding: 'UTF-8', 
+  Tables: 'striim.Emp;', 
+  AllowQuotedNewLines: 'false', 
+  optimizedMerge: 'false', 
+  adapterName: 'BigQueryWriter', 
+  Mode: 'APPENDONLY', 
+  ConnectionRetryPolicy: 'totalTimeout=60, initialRetryDelay=10, retryDelayMultiplier=2.0, maxRetryDelay=60 , maxAttempts=5, jittered=True, initialRpcTimeout=10, rpcTimeoutMultiplier=2.0, maxRpcTimeout=30', 
+  TransportOptions: 'connectionTimeout=30, readTimeout=60', 
+  StandardSQL: 'true', 
+  includeInsertId: 'true', 
+  QuoteCharacter: '\"', 
+  ServiceAccountKey: 'E:/Striim_3.10.3.3A/Striim/elaborate-art-306315-a4cc7ec7b737.json', 
+  projectId: 'elaborate-art-306315' ) 
+INPUT FROM CQ_mssqltobq_out;
+
+END APPLICATION CDCMSSQLtoBQ;
+

@@ -1,0 +1,33 @@
+
+CREATE APPLICATION OracleToMSSQLIL;
+
+CREATE OR REPLACE SOURCE OracleToMSSQLIL_Src USING Global.DatabaseReader ( 
+  Tables: 'STRIIM.EMP', 
+  DatabaseProviderType: 'Default', 
+  adapterName: 'DatabaseReader', 
+  ConnectionURL: 'jdbc:oracle:thin:@localhost:1521/orcl', 
+  QuiesceOnILCompletion: false, 
+  Password_encrypted: 'true', 
+  Username: 'striim', 
+  FetchSize: 10, 
+  Password: 'oQ7AuMLFPz55u3k4kRRHTA==' ) 
+OUTPUT TO OracleToMSSQLIL_SrcOut;
+
+CREATE OR REPLACE TARGET MSSQLToOracleIL_Tgt USING Global.DatabaseWriter ( 
+  Password: '0i9+i5sVj3tqk9b98B0Z4A==', 
+  ConnectionRetryPolicy: 'retryInterval=30, maxRetries=3', 
+  BatchPolicy: 'EventCount:10,Interval:60', 
+  CommitPolicy: 'EventCount:10,Interval:60', 
+  CheckPointTable: 'CHKPOINT', 
+  Password_encrypted: 'true', 
+  ConnectionURL: 'jdbc:sqlserver://localhost:1433;DatabaseName=striim', 
+  StatementCacheSize: '50', 
+  DatabaseProviderType: 'Default', 
+  Tables: 'STRIIM.EMP,dbo.EMP', 
+  Username: 'sa', 
+  PreserveSourceTransactionBoundary: 'false', 
+  adapterName: 'DatabaseWriter' ) 
+INPUT FROM OracleToMSSQLIL_SrcOut;
+
+END APPLICATION OracleToMSSQLIL;
+

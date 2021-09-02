@@ -1,0 +1,41 @@
+
+CREATE APPLICATION FileWithRecvery RECOVERY 1 MINUTE INTERVAL;
+
+CREATE OR REPLACE SOURCE FIleRecovery_src USING Global.FileReader ( 
+  adapterName: 'FileReader', 
+  positionbyeof: true, 
+  directory: 'E:/Temp/Files', 
+  rolloverstyle: 'Default', 
+  blocksize: 64, 
+  skipbom: true, 
+  wildcard: 'File11.txt', 
+  includesubdirectories: false ) 
+PARSE USING Global.FreeFormTextParser ( 
+  charset: 'UTF-8', 
+  RecordBegin: 'ID', 
+  ignoremultiplerecordbegin: 'true', 
+  separator: '~', 
+  blockascompleterecord: false ) 
+OUTPUT TO FIleRecovery_src_op;
+
+CREATE OR REPLACE TARGET Recoveryfile_tgt USING Global.FileWriter ( 
+  filename: 'Recovery.txt', 
+  rolloveronddl: 'true', 
+  encryptionpolicy: '', 
+  adapterName: 'FileWriter', 
+  flushpolicy: 'EventCount:1,Interval:30s', 
+  rolloverpolicy: 'EventCount:1,Interval:30s' ) 
+FORMAT USING Global.DSVFormatter  ( 
+  quotecharacter: '\"', 
+  handler: 'com.webaction.proc.DSVFormatter', 
+  columndelimiter: ',', 
+  formatterName: 'DSVFormatter', 
+  nullvalue: 'NULL', 
+  usequotes: 'false', 
+  rowdelimiter: '\n', 
+  standard: 'none', 
+  header: 'false' ) 
+INPUT FROM FIleRecovery_src_op;
+
+END APPLICATION FileWithRecvery;
+

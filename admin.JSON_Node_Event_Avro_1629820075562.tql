@@ -1,0 +1,29 @@
+
+CREATE APPLICATION JSON_Node_Event_Avro;
+
+CREATE SOURCE JSON_NEA_SRC USING Global.FileReader ( 
+  positionbyeof: true, 
+  directory: 'E:/DeepakSubramoniam/Indium/striim/SuccessProgram/Albertson/App/', 
+  rolloverstyle: 'Default', 
+  blocksize: 64, 
+  wildcard: 'MerchandiseHier.json', 
+  skipbom: true, 
+  includesubdirectories: false ) 
+PARSE USING Global.JSONParser ( 
+ ) 
+OUTPUT TO JSON_NEA_SRC_OP;
+
+CREATE TARGET JSON_NEA_FILE_WRITER USING Global.FileWriter ( 
+  DataEncryptionKeyPassphrase: '', 
+  flushpolicy: 'EventCount:10000,Interval:30s', 
+  filename: 'Merchand.avro', 
+  rolloveronddl: 'true', 
+  encryptionpolicy: '', 
+  rolloverpolicy: 'EventCount:10000,Interval:30s' ) 
+FORMAT USING Global.AvroFormatter  ( 
+  schemaFileName: 'MerchandiseHierarchy.avsc', 
+  formatAs: 'default' ) 
+INPUT FROM JSON_NEA_SRC_OP;
+
+END APPLICATION JSON_Node_Event_Avro;
+

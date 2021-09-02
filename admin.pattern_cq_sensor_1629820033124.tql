@@ -1,0 +1,55 @@
+
+CREATE APPLICATION pattern_cq_sensor;
+
+CREATE OR REPLACE SOURCE Oracle_src_pattern USING Global.OracleReader ( 
+  TransactionBufferDiskLocation: '.striim/LargeBuffer', 
+  adapterName: 'OracleReader', 
+  OutboundServerProcessName: 'WebActionXStream', 
+  DDLCaptureMode: 'All', 
+  Compression: false, 
+  ReaderType: 'LogMiner', 
+  FetchSize: 1, 
+  connectionRetryPolicy: 'timeOut=30, retryInterval=30, maxRetries=3', 
+  Password_encrypted: 'true', 
+  SupportPDB: false, 
+  QuiesceMarkerTable: 'QUIESCEMARKER', 
+  ConnectionURL: 'jdbc:oracle:thin:@10.128.0.4:1521/xe', 
+  CommittedTransactions: true, 
+  QueueSize: 2048, 
+  XstreamTimeOut: 600, 
+  DictionaryMode: 'OnlineCatalog', 
+  Username: 'striim', 
+  TransactionBufferSpilloverSize: '1MB', 
+  TransactionBufferType: 'Memory', 
+  Password: '70YDmXIQHmHrkbFHDBWpOBjEuNpW1DIrJMiSxtsBNOg=', 
+  FilterTransactionBoundaries: true, 
+  SendBeforeImage: true, 
+  Tables: 'STRIIM.pattern_src;' ) 
+OUTPUT TO src_pattern_op;
+
+CREATE OR REPLACE CQ cq_pattern_matching 
+INSERT INTO cq_pattern_matching_op 
+SELECT (o.data[0]) as below , (p.data[0]) as above FROM src_pattern_op s
+MATCH_PATTERN (o&p)
+DEFINE
+o = s(to_int(data[1]) < 100 ),
+p = s(to_int(data[1]) >= 100);
+
+CREATE TARGET cq_op_patten_final USING Global.DatabaseWriter ( 
+  Tables: 'STRIIM.pattern_tar', 
+  ConnectionRetryPolicy: 'retryInterval=30, maxRetries=3', 
+  ParallelThreads: '', 
+  DatabaseProviderType: 'Oracle', 
+  CheckPointTable: 'CHKPOINT', 
+  Password_encrypted: 'true', 
+  ConnectionURL: 'jdbc:oracle:thin:@10.128.0.4:1521/xe', 
+  Username: 'striim', 
+  StatementCacheSize: '50', 
+  CommitPolicy: 'EventCount:1,Interval:6', 
+  Password: '70YDmXIQHmHrkbFHDBWpOBjEuNpW1DIrJMiSxtsBNOg=', 
+  PreserveSourceTransactionBoundary: 'false', 
+  BatchPolicy: 'EventCount:1,Interval:6' ) 
+INPUT FROM cq_pattern_matching_op;
+
+END APPLICATION pattern_cq_sensor;
+

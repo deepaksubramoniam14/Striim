@@ -1,0 +1,137 @@
+
+CREATE APPLICATION JMX_APP_METRICS;
+
+CREATE OR REPLACE TYPE JMXCASEFILTER_OUTPUT_Type (
+ ComponentName java.lang.String,
+ START_SCN java.lang.Integer,
+ READ_LAG java.lang.Integer,
+ SOURCE_INPUT java.lang.Integer,
+ ORA_READER_LAST_OBSERVED_SCN java.lang.Integer,
+ TARGET_OUTPUT java.lang.Integer,
+ TARGET_ACKED java.lang.Integer,
+ OUTPUT_RATE java.lang.Integer,
+ CDC_OPERATION java.lang.String,
+ TOTAL_NO_OF_OPERATIONS java.lang.String,
+ TABLE_INFO java.lang.String,
+ CHECKPOINT_STATUS java.lang.String,
+ CPU_THREAD java.lang.String,
+ TABLE_INFO2 java.lang.Float,
+ ORA_READER_LAST_OBSERVED_TIMESTAMP java.lang.String,
+ LATEST_ACTIVITY java.lang.String,
+ MetricTime java.lang.String KEY);
+
+CREATE OR REPLACE SOURCE JMXSOURCEREADER USING Global.JMXReader ( 
+  pollinterval: '60', 
+  adapterName: 'JMXReader', 
+  connectionretrypolicy: 'retryInterval=30,maxRetries=3', 
+  serviceurl: 'service:jmx:rmi:///jndi/rmi://localhost:8855/jmxrmi' ) 
+OUTPUT TO JMXSOURCEREADER_OUT;
+
+CREATE OR REPLACE TYPE JMXCASEFILTER_OUT_Type (
+ ComponentName java.lang.String,
+ START_SCN java.lang.String,
+ READ_LAG java.lang.Integer,
+ SOURCE_INPUT java.lang.String,
+ ORA_READER_LAST_OBSERVED_TIMESTAMP java.lang.String,
+ ORA_READER_LAST_OBSERVED_SCN java.lang.String,
+ TARGET_OUTPUT java.lang.String,
+ TARGET_ACKED java.lang.String,
+ OUTPUT_RATE java.lang.String,
+ CDC_OPERATION java.lang.String,
+ TOTAL_NO_OF_OPERATIONS java.lang.String,
+ TABLE_INFO java.lang.String,
+ CHECKPOINT_STATUS java.lang.String,
+ CPU_THREAD java.lang.String,
+ TABLE_INFO2 java.lang.String,
+ LATEST_ACTIVITY java.lang.String,
+ MetricTime org.joda.time.DateTime KEY);
+
+CREATE OR REPLACE TYPE JMZX9_Type (
+ ComponentName java.lang.String,
+ START_SCN java.lang.Integer,
+ SOURCE_INPUT java.lang.Integer,
+ ORA_READER_LAST_OBSERVED_TIMESTAMP org.joda.time.DateTime,
+ ORA_READER_LAST_OBSERVED_SCN java.lang.Integer,
+ TARGET_OUTPUT java.lang.Integer,
+ TARGET_ACKED java.lang.Integer,
+ OUTPUT_RATE java.lang.Float,
+ CDC_OPERATION java.lang.String,
+ TOTAL_NO_OF_OPERATIONS java.lang.String,
+ TABLE_INFO java.lang.String,
+ CHECKPOINT_STATUS java.lang.String,
+ CPU_THREAD java.lang.String,
+ TABLE_INFO2 java.lang.Integer,
+ LATEST_ACTIVITY org.joda.time.DateTime,
+ MetricTime org.joda.time.DateTime KEY);
+
+CREATE TYPE JMXWACTIONSTORE (
+ ComponentName java.lang.String,
+ MetricName java.lang.String,
+ MetricType java.lang.String,
+ MetricValue java.lang.String,
+ MetricTime org.joda.time.DateTime KEY);
+
+CREATE OR REPLACE CQ GETAPPMETRICS 
+INSERT INTO GETAPPMETRICS_OUT 
+SELECT DNOW() as curTime, DHOURS(curTime) as thehour, data.get("ObjectName").textValue() as objectName, data.get("Attributes") attrs  FROM JMXSOURCEREADER_OUT j;;
+
+CREATE CQ GETATTRIBUTEMETRICS 
+INSERT INTO GETATTRIBUTEMETRICS_OUT 
+SELECT 
+g.objectname.substring(g.objectname.lastIndexOf("name=")+5,
+g.objectname.length()) as ComponentName, 
+g.curTime as MetricTime, 
+attritr.get(0).textValue() as MetricName, 
+attritr.get(1).textValue() as MetricType, 
+attritr.get(2).textValue() as MetricValue
+FROM GETAPPMETRICS_OUT g,iterator(g.attrs) 
+attritr HAVING ComponentName in ("ROLLUP.admin.OracleCdcToSnowFlakeSrc","ROLLUP.admin.OracleCdcToSnowFlakeTgt");
+
+CREATE CQ METRICNAMEFILTER 
+INSERT INTO METRICNAMEFILTER_OU 
+SELECT 
+g.ComponentName as ComponentName,
+g.MetricTime as MetricTime,
+g.MetricName as MetricName,
+g.MetricType as MetricType,
+g.MetricValue as MetricValue
+FROM GETATTRIBUTEMETRICS_OUT g
+where g.MetricName in (
+'START_SCN',
+'READ_LAG',
+'SOURCE_INPUT',
+'ORA_READER_LAST_OBSERVED_TIMESTAMP',
+'ORA_READER_LAST_OBSERVED_SCN',
+'TARGET_OUTPUT',
+'TARGET_ACKED',
+'OUTPUT_RATE',
+'CDC_OPERATION',
+'TOTAL_NO_OF_OPERATIONS',
+'TABLE_INFO',
+'TABLE_WRITE_INFO',
+'CHECKPOINT_STATUS',
+'CPU_THREAD',
+'CPU_RATE',
+'LATEST_ACTIVITY'
+);
+
+CREATE OR REPLACE TARGET SF_TGT1 USING Global.SnowflakeWriter ( 
+  connectionUrl: 'jdbc:snowflake://iu08799.us-central1.gcp.snowflakecomputing.com/?db=STRIIM&schema=striim', 
+  password_encrypted: 'FALSE', 
+  uploadPolicy: 'eventcount:100,interval:30s', 
+  azureContainerName: 'striim-snowflake-container', 
+  optimizedMerge: 'false', 
+  tables: 'STRIIM.STRIIM.JMXMONITOR1', 
+  columnDelimiter: '|', 
+  s3Region: 'us-west-1', 
+  appendOnly: 'false', 
+  password: 'xeolis5XND+NaPLzUmOmfQ==', 
+  externalStageType: 'Local', 
+  adapterName: 'SnowflakeWriter', 
+  fileFormatOptions: 'null_if = \"\"', 
+  username: 'STRIIMGCP10', 
+  s3BucketName: 'striim-snowflake-bucket' ) 
+INPUT FROM METRICNAMEFILTER_OU;
+
+END APPLICATION JMX_APP_METRICS;
+

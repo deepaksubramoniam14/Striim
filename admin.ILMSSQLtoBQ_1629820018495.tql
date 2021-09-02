@@ -1,0 +1,42 @@
+
+CREATE APPLICATION ILMSSQLtoBQ;
+
+CREATE OR REPLACE SOURCE IL_SRC_MSSQL USING Global.DatabaseReader ( 
+  Password: '0i9+i5sVj3tqk9b98B0Z4A==', 
+  ExcludedTables: '-STRIIM.DBO.PURCHASEDETAIL;', 
+  DatabaseProviderType: 'Default', 
+  Tables: 'STRIIM.DBO.EMP;', 
+  QuiesceOnILCompletion: true, 
+  adapterName: 'DatabaseReader', 
+  Username: 'sa', 
+  FetchSize: 1, 
+  Password_encrypted: 'false', 
+  ConnectionURL: 'jdbc:sqlserver://localhost:1433;DatabaseName=striim;;' ) 
+OUTPUT TO IL_SRC_OUT_MS;
+
+CREATE OR REPLACE CQ CQ_ILMSSQL 
+INSERT INTO CQ_ILMSSQL_Out 
+SELECT data[0] as EMP_ID, data[1] as EMP_NAME,data[2] as EMP_NAME FROM IL_SRC_OUT_MS m;
+
+CREATE OR REPLACE TARGET IL_MSSQL_BQ_TGT USING Global.BigQueryWriter ( 
+  ColumnDelimiter: '|', 
+  NullMarker: 'NULL', 
+  streamingUpload: 'false', 
+  Encoding: 'UTF-8', 
+  BatchPolicy: 'eventCount:2, Interval:1', 
+  Tables: 'striim.Emp;', 
+  AllowQuotedNewLines: 'false', 
+  optimizedMerge: 'false', 
+  TransportOptions: 'connectionTimeout=300, readTimeout=120', 
+  adapterName: 'BigQueryWriter', 
+  Mode: 'APPENDONLY', 
+  ConnectionRetryPolicy: 'totalTimeout=60, initialRetryDelay=10, retryDelayMultiplier=2.0, maxRetryDelay=60 , maxAttempts=5, jittered=True, initialRpcTimeout=10, rpcTimeoutMultiplier=2.0, maxRpcTimeout=30', 
+  StandardSQL: 'true', 
+  includeInsertId: 'true', 
+  QuoteCharacter: '\"', 
+  ServiceAccountKey: 'E:/Striim_3.10.3.3A/Striim/elaborate-art-306315-a4cc7ec7b737.json', 
+  projectId: 'elaborate-art-306315' ) 
+INPUT FROM CQ_ILMSSQL_Out;
+
+END APPLICATION ILMSSQLtoBQ;
+

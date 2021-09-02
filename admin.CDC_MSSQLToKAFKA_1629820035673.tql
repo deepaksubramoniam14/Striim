@@ -1,0 +1,104 @@
+
+CREATE APPLICATION CDC_MSSQLToKAFKA;
+
+CREATE OR REPLACE SOURCE CDC_MSSQL_KAFKA_SRC USING Global.MSSqlReader ( 
+  TransactionSupport: false, 
+  Password: '0i9+i5sVj3tqk9b98B0Z4A==', 
+  FetchTransactionMetadata: false, 
+  Compression: false, 
+  connectionRetryPolicy: 'timeOut=30, retryInterval=30, maxRetries=3', 
+  Password_encrypted: 'false', 
+  StartPosition: 'LSN:0x000000700000277800CB', 
+  ConnectionURL: 'jdbc:sqlserver://localhost:1433;DatabaseName=striim', 
+  Fetchsize: 0, 
+  adapterName: 'MSSqlReader', 
+  ConnectionPoolSize: 10, 
+  cdcRoleName: 'STRIIM_READER', 
+  Username: 'sa', 
+  Tables: 'DBO.EMP;', 
+  DatabaseName: 'STRIIM', 
+  FilterTransactionBoundaries: true, 
+  SendBeforeImage: true, 
+  AutoDisableTableCDC: false ) 
+OUTPUT TO CDC_MSSQL_KAFKA_SRC_OP;
+
+CREATE CQ CDC_MSSQL_CQ_WA 
+INSERT INTO CDC_MSSQL_CQ_WA_OP 
+SELECT c FROM CDC_MSSQL_KAFKA_SRC_OP c;;
+
+CREATE TARGET DSV_CDC_KAFKA USING Global.KafkaWriter VERSION '0.8.0'( 
+  brokerAddress: 'localhost:9092', 
+  Topic: 'DSVKAFKA', 
+  ParallelThreads: '', 
+  Mode: 'Sync' ) 
+FORMAT USING Global.DSVFormatter  ( 
+  quotecharacter: '\"', 
+  columndelimiter: ',', 
+  nullvalue: 'NULL', 
+  usequotes: 'false', 
+  rowdelimiter: '\n', 
+  standard: 'none', 
+  header: 'false' ) 
+INPUT FROM CDC_MSSQL_CQ_WA_OP;
+
+CREATE CQ CDC_CQ_COLUM_FORMATTED 
+INSERT INTO CDC_CQ_COLUM_FORMATTED_OP 
+SELECT data[0] as EMP_ID,
+data[1] as EMP_NAME,
+data[2] as EMP_CITY
+FROM CDC_MSSQL_CQ_WA_OP c;;
+
+CREATE TARGET JSON_CDC_KAFKA USING Global.KafkaWriter VERSION '0.11.0'( 
+  brokerAddress: 'localhost:9092', 
+  KafkaConfigValueSeparator: '=', 
+  Topic: 'JSON_CDC_KAFKA', 
+  MessageHeader: '', 
+  KafkaConfigPropertySeparator: ';', 
+  ParallelThreads: '', 
+  MessageKey: 'Table=\"striim.dbo.EMP\"', 
+  Mode: 'async', 
+  KafkaConfig: 'request.timeout.ms=60001;session.timeout.ms=60000' ) 
+FORMAT USING Global.JSONFormatter  ( 
+  jsonMemberDelimiter: '\n', 
+  EventsAsArrayOfJsonObjects: 'true', 
+  jsonobjectdelimiter: '\n' ) 
+INPUT FROM CDC_MSSQL_CQ_WA_OP;
+
+CREATE TARGET DSV_Column_Formatted_Kafka USING Global.KafkaWriter VERSION '0.11.0'( 
+  brokerAddress: 'localhost:9092', 
+  KafkaConfigValueSeparator: '=', 
+  MessageKey: '', 
+  MessageHeader: '', 
+  KafkaConfigPropertySeparator: ';', 
+  ParallelThreads: '', 
+  Mode: 'Sync', 
+  Topic: 'DSV_COLUMNFORMATTED_KAFKA', 
+  KafkaConfig: 'request.timeout.ms=60001;session.timeout.ms=60000' ) 
+FORMAT USING Global.DSVFormatter  ( 
+  quotecharacter: '\"', 
+  columndelimiter: ',', 
+  nullvalue: 'NULL', 
+  usequotes: 'false', 
+  rowdelimiter: '\n', 
+  standard: 'none', 
+  header: 'false' ) 
+INPUT FROM CDC_CQ_COLUM_FORMATTED_OP;
+
+CREATE TARGET JSON_COLUMNFORMATTED_KAFKA USING Global.KafkaWriter VERSION '0.11.0'( 
+  brokerAddress: 'localhost:9092', 
+  KafkaConfigValueSeparator: '=', 
+  MessageKey: '', 
+  Topic: 'JSON_COLUMNFORMATTED_KAFKA', 
+  MessageHeader: '', 
+  KafkaConfigPropertySeparator: ';', 
+  ParallelThreads: '', 
+  Mode: 'Sync', 
+  KafkaConfig: 'request.timeout.ms=60001;session.timeout.ms=60000' ) 
+FORMAT USING Global.JSONFormatter  ( 
+  jsonMemberDelimiter: '\n', 
+  EventsAsArrayOfJsonObjects: 'true', 
+  jsonobjectdelimiter: '\n' ) 
+INPUT FROM CDC_CQ_COLUM_FORMATTED_OP;
+
+END APPLICATION CDC_MSSQLToKAFKA;
+

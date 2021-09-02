@@ -1,0 +1,84 @@
+
+CREATE APPLICATION JMX_TESTING;
+
+CREATE OR REPLACE SOURCE JMXSOURCEREADER_TESTING USING Global.JMXReader ( 
+  pollinterval: '10', 
+  adapterName: 'JMXReader', 
+  connectionretrypolicy: 'retryInterval=30,maxRetries=3', 
+  serviceurl: 'service:jmx:rmi:///jndi/rmi://localhost:8855/jmxrmi' ) 
+OUTPUT TO JMXSOURCEREADER_TESTING_OP;
+
+CREATE OR REPLACE CQ CQ_AppMetrics_1 
+INSERT INTO CQ_AppMetrics_OP 
+SELECT DNOW() as CurDateTime, DDAYS(DNOW()) as CurDate, DMONTHS(DNOW()) as CurMonth, DHOURS(DNOW()) as CurHours, DMINS(DNOW()) as CurMins, DSECS(DNOW()) as CurSecs, data.get("ObjectName").textValue() as objectName, data.get("Attributes") attrs FROM JMXSOURCEREADER_TESTING_OP where data.get("ObjectName").textValue().substring(data.get("ObjectName").textValue().lastIndexOf("name=")+5, data.get("ObjectName").textValue().length()) IN ("ROLLUP.admin.OracleCdcToSnowFlakeSrc","ROLLUP.admin.OracleCdcToSnowFlakeTgt");
+
+CREATE CQ CQ_AttributeMetrics_1 
+INSERT INTO CQ_AttributeMetrics_OP 
+SELECT 
+c.CurDatetime as MetricTime,
+c.CurDate as MetricDate,
+c.CurMonth as MetricMonth,
+c.CurHours as MetricHours,
+c.CurMins as MetricMins,
+c.CurSecs as MetricSecs,
+c.objectname.substring(c.objectname.lastIndexOf("name=")+5,
+c.objectname.length()) as ComponentName, 
+attritr.get(0).textValue() as MetricName, 
+attritr.get(1).textValue() as MetricType, 
+attritr.get(2).textValue() as MetricValue
+FROM CQ_AppMetrics_OP c,iterator(c.attrs)
+attritr Having ComponentName in ("ROLLUP.admin.OracleCdcToSnowFlakeSrc","ROLLUP.admin.OracleCdcToSnowFlakeTgt");;
+
+CREATE CQ CQ_MetricNameFilter 
+INSERT INTO CQ_MetricNameFilter_OP 
+SELECT 
+c.MetricTime as MetricTime,
+c.MetricDate as MetricDate,
+c.MetricMonth as MetricMonth,
+c.MetricHours as MetricHours,
+c.MetricMins as MetricMins,
+c.MetricSecs as MetricSecs,
+c.ComponentName as ComponentName,
+c.MetricTime as MetricTime,
+c.MetricName as MetricName,
+c.MetricType as MetricType,
+c.MetricValue as MetricValue
+FROM CQ_AttributeMetrics_OP c
+Where c.MetricName in (
+'START_SCN',
+'READ_LAG',
+'SOURCE_INPUT',
+'ORA_READER_LAST_OBSERVED_TIMESTAMP',
+'ORA_READER_LAST_OBSERVED_SCN',
+'TARGET_OUTPUT',
+'TARGET_ACKED',
+'OUTPUT_RATE',
+'CDC_OPERATION',
+'TOTAL_NO_OF_OPERATIONS',
+'TABLE_INFO',
+'TABLE_WRITE_INFO',
+'CHECKPOINT_STATUS',
+'CPU_THREAD',
+'CPU_RATE',
+'LATEST_ACTIVITY'
+);
+
+CREATE OR REPLACE CQ CQ_CaseFilter 
+INSERT INTO CQ_CaseFilter_OUT 
+SELECT 
+c.MetricTime as MetricTime,
+c.MetricDate as MetricDate,
+c.MetricMonth as MetricMonth,
+c.MetricHours as MetricHours,
+c.MetricMins as MetricMins,
+c.MetricSecs as MetricSecs,
+c.ComponentName as ComponentName,
+CASE WHEN MetricName='START_SCN' THEN to_int(MetricValue) ELSE NULL END as START_SCN, 
+CASE WHEN MetricName='READ_LAG' THEN to_int(MetricValue) ELSE NULL END as READ_LAG
+
+FROM CQ_MetricNameFilter_OP c
+where CASE WHEN MetricName='START_SCN' THEN to_int(MetricValue) ELSE NULL END !=0
+or CASE WHEN MetricName='READ_LAG' THEN to_int(MetricValue) ELSE NULL END !=0;
+
+END APPLICATION JMX_TESTING;
+

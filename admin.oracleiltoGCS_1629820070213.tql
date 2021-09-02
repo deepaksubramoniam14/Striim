@@ -1,0 +1,5 @@
+
+CREATE APPLICATION oracleiltoGCS;
+
+END APPLICATION oracleiltoGCS;
+

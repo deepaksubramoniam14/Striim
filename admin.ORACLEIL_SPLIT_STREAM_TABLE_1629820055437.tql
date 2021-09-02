@@ -1,0 +1,57 @@
+
+CREATE APPLICATION ORACLEIL_SPLIT_STREAM_TABLE;
+
+CREATE OR REPLACE SOURCE IL_ORA_SRC_TAB USING Global.DatabaseReader ( 
+  DatabaseProviderType: 'Default', 
+  Tables: 'STRIIM.TABLE%;', 
+  adapterName: 'DatabaseReader', 
+  ConnectionURL: 'jdbc:oracle:thin:@localhost:1521/orcl', 
+  QuiesceOnILCompletion: false, 
+  FetchSize: 1, 
+  Password_encrypted: 'true', 
+  Username: 'striim', 
+  Password: 'oQ7AuMLFPz55u3k4kRRHTA==' ) 
+OUTPUT TO IL_ORA_SRC_TAB_OP;
+
+CREATE OR REPLACE CQ CQ_IL_SRC_TAB_AB 
+INSERT INTO CQ_IL_SRC_TAB_AB1 
+SELECT data[0] as col1,data[1] as col2,data[2] as col3,data[3] as col4,data[4] as col5 FROM IL_ORA_SRC_TAB_OP o where meta(o,'TableName').toString() in ('STRIIM.TABLEA','STRIIM.TABLEB');;
+
+CREATE OR REPLACE CQ CQ_IL_SRC_TAB_CD 
+INSERT INTO CQ_IL_SRC_TAB_2 
+SELECT data[0] as col1,data[1] as col2,data[2] as col3,data[3] as col4,data[4] as col5 FROM IL_ORA_SRC_TAB_OP o where meta(o,'TableName').toString() in ('STRIIM.TABLEC','STRIIM.TABLED');;
+
+CREATE OR REPLACE TARGET TGT_IL_AB_ORA USING Global.DatabaseWriter ( 
+  ConnectionRetryPolicy: 'retryInterval=30, maxRetries=3', 
+  CheckPointTable: 'CHKPOINT', 
+  Password_encrypted: 'true', 
+  StatementCacheSize: '50', 
+  CommitPolicy: 'EventCount:1,Interval:60', 
+  DatabaseProviderType: 'Default', 
+  ConnectionURL: 'jdbc:oracle:thin:@localhost:1521/orcl', 
+  Password: 'OJF6OhiOlfTAPxIiK8dYOA==', 
+  Username: 'striim1', 
+  Tables: 'STRIIM1.TABLEA;', 
+  PreserveSourceTransactionBoundary: 'false', 
+  BatchPolicy: 'EventCount:1,Interval:60', 
+  adapterName: 'DatabaseWriter' ) 
+INPUT FROM CQ_IL_SRC_TAB_AB1;
+
+CREATE OR REPLACE TARGET TGT_IL_CD_ORA USING Global.DatabaseWriter ( 
+  ConnectionRetryPolicy: 'retryInterval=30, maxRetries=3', 
+  CheckPointTable: 'CHKPOINT', 
+  Password_encrypted: 'true', 
+  StatementCacheSize: '50', 
+  CommitPolicy: 'EventCount:1,Interval:60', 
+  DatabaseProviderType: 'Default', 
+  ConnectionURL: 'jdbc:oracle:thin:@localhost:1521/orcl', 
+  Password: 'OJF6OhiOlfTAPxIiK8dYOA==', 
+  Username: 'striim1', 
+  PreserveSourceTransactionBoundary: 'false', 
+  Tables: 'STRIIM1.TABLEB;', 
+  BatchPolicy: 'EventCount:1,Interval:60', 
+  adapterName: 'DatabaseWriter' ) 
+INPUT FROM CQ_IL_SRC_TAB_2;
+
+END APPLICATION ORACLEIL_SPLIT_STREAM_TABLE;
+

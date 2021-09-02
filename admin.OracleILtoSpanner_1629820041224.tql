@@ -1,0 +1,26 @@
+
+CREATE APPLICATION OracleILtoSpanner;
+
+CREATE OR REPLACE SOURCE OracleILSpannerSrc USING Global.DatabaseReader ( 
+  DatabaseProviderType: 'Default', 
+  Password: 'qk4CEA+DrfVN4RNrN5sjvsbEteGBwe3dVUE1ova5fmw=', 
+  QuiesceOnILCompletion: true, 
+  adapterName: 'DatabaseReader', 
+  ConnectionURL: 'jdbc:oracle:thin:@localhost:1521/orcl', 
+  Tables: 'STRIIM.MYTABLE', 
+  Password_encrypted: 'true', 
+  Username: 'striim', 
+  FetchSize: 10 ) 
+OUTPUT TO OracleILtoSpannerIp;
+
+CREATE OR REPLACE TARGET OracleIltoSpanner USING Global.SpannerWriter ( 
+  BatchPolicy: 'EventCount: 10, Interval: 6s', 
+  CheckpointTable: 'CHKPOINT', 
+  adapterName: 'SpannerWriter', 
+  InstanceID: 'striim-spanner', 
+  Tables: 'STRIIM.MYTABLE,striimspanner.MYTABLE COLUMNMAP(COL1=COL1,COL2=COL2,COL3=COL3,COL4=COL4,COL5=COL5)', 
+  ServiceAccountKey: 'E:\\Striim_3.10.1ns\\Striim\\striim-296201-ea7603e8560f.json' ) 
+INPUT FROM OracleILtoSpannerIp;
+
+END APPLICATION OracleILtoSpanner;
+

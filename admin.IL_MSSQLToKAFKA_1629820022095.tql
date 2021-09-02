@@ -1,0 +1,73 @@
+
+CREATE APPLICATION IL_MSSQLToKAFKA;
+
+CREATE OR REPLACE SOURCE IL_MSSQL_KAFKA_SRC USING Global.DatabaseReader ( 
+  Password: '0i9+i5sVj3tqk9b98B0Z4A==', 
+  DatabaseProviderType: 'Default', 
+  QuiesceOnILCompletion: true, 
+  adapterName: 'DatabaseReader', 
+  Username: 'sa', 
+  FetchSize: 1, 
+  Tables: 'STRIIM.DBO.EMP;STRIIM.DBO.EMPCITY;', 
+  Password_encrypted: 'false', 
+  ConnectionURL: 'jdbc:sqlserver://localhost:1433;DatabaseName=striim' ) 
+OUTPUT TO IL_MSSQL_KAFKA_SRC_OUT;
+
+CREATE OR REPLACE CQ CQ_EMPCITY_MSSQL_KAFKA 
+INSERT INTO CQ_EMPCITY_MSSQL_KAFKA_OUT 
+SELECT i 
+FROM IL_MSSQL_KAFKA_SRC_OUT i
+where meta(i,'TableName').toString() in ('striim.dbo.EMPCITY');;
+
+CREATE OR REPLACE CQ CQ_EMP_MSSQL_KAFKA_SRC 
+INSERT INTO CQ_EMP_MSSQL_KAFKA_SRC_OUT 
+SELECT i 
+FROM IL_MSSQL_KAFKA_SRC_OUT i
+where meta(i,'TableName').toString() in ('striim.dbo.EMP');;
+
+CREATE OR REPLACE TARGET IL_MSSQL_EMPCITY_KAFKA_TGT USING Global.KafkaWriter VERSION '0.11.0'( 
+  brokerAddress: 'localhost:9092', 
+  KafkaConfigValueSeparator: '=', 
+  MessageKey: '', 
+  adapterName: 'KafkaWriter', 
+  MessageHeader: '', 
+  KafkaConfigPropertySeparator: ';', 
+  Mode: 'Sync', 
+  Topic: 'EMPCITY1STRIIMKAFKA', 
+  KafkaConfig: 'request.timeout.ms=60001;session.timeout.ms=60000' ) 
+FORMAT USING Global.DSVFormatter  ( 
+  quotecharacter: '\"', 
+  handler: 'com.webaction.proc.DSVFormatter', 
+  columndelimiter: ',', 
+  formatterName: 'DSVFormatter', 
+  nullvalue: 'NULL', 
+  usequotes: 'false', 
+  rowdelimiter: '\n', 
+  standard: 'none', 
+  header: 'false' ) 
+INPUT FROM CQ_EMPCITY_MSSQL_KAFKA_OUT;
+
+CREATE OR REPLACE TARGET IL_MSSQL_KAFKA_TGT USING Global.KafkaWriter VERSION '0.11.0'( 
+  brokerAddress: 'localhost:9092', 
+  Topic: 'EMP1STRIIMKAFKA', 
+  KafkaConfigValueSeparator: '=', 
+  adapterName: 'KafkaWriter', 
+  MessageHeader: '', 
+  KafkaConfigPropertySeparator: ';', 
+  MessageKey: 'Table=\"striim.dbo.EMP\"', 
+  Mode: 'async', 
+  KafkaConfig: 'request.timeout.ms=60001;session.timeout.ms=60000' ) 
+FORMAT USING Global.DSVFormatter  ( 
+  quotecharacter: '\"', 
+  handler: 'com.webaction.proc.DSVFormatter', 
+  columndelimiter: ',', 
+  formatterName: 'DSVFormatter', 
+  nullvalue: 'NULL', 
+  usequotes: 'false', 
+  rowdelimiter: '\n', 
+  standard: 'none', 
+  header: 'false' ) 
+INPUT FROM CQ_EMP_MSSQL_KAFKA_SRC_OUT;
+
+END APPLICATION IL_MSSQLToKAFKA;
+

@@ -1,0 +1,209 @@
+
+CREATE APPLICATION JMX_Monitor_App;
+
+CREATE OR REPLACE TYPE JMX_DET_CQ_OUT_Type (
+ jcomponentName java.lang.String,
+ START_SCN java.lang.String,
+ READ_LAG java.lang.String,
+ SOURCE_INPUT java.lang.String,
+ ORA_READER_LAST_OBSERVED_TIMESTAMP java.lang.String,
+ ORA_READER_LAST_OBSERVED_SCN java.lang.String,
+ TARGET_OUTPUT java.lang.String,
+ TARGET_ACKED java.lang.String,
+ OUTPUT_RATE java.lang.String,
+ CDC_OPERATION java.lang.String,
+ TOTAL_NO_OF_OPERATIONS java.lang.String,
+ TABLE_INFO java.lang.String,
+ CHECKPOINT_STATUS java.lang.String,
+ CPU_THREAD java.lang.String,
+ TABLE_INFO2 java.lang.String,
+ LATEST_ACTIVITY java.lang.String,
+ jMetricTime org.joda.time.DateTime KEY);
+
+CREATE OR REPLACE TYPE JMX_4_Type (
+ jcomponentName java.lang.String,
+ START_SCN java.lang.String,
+ READ_LAG java.lang.String,
+ SOURCE_INPUT java.lang.String,
+ ORA_READER_LAST_OBSERVED_TIMESTAMP java.lang.String,
+ ORA_READER_LAST_OBSERVED_SCN java.lang.String,
+ TARGET_OUTPUT java.lang.String,
+ TARGET_ACKED java.lang.String,
+ OUTPUT_RATE java.lang.String,
+ CDC_OPERATION java.lang.String,
+ TOTAL_NO_OF_OPERATIONS java.lang.String,
+ TABLE_INFO java.lang.String,
+ CHECKPOINT_STATUS java.lang.String,
+ CPU_THREAD java.lang.String,
+ TABLE_INFO2 java.lang.String,
+ LATEST_ACTIVITY java.lang.String,
+ jMetricTime org.joda.time.DateTime KEY);
+
+CREATE OR REPLACE TYPE JMX_OUT2_Type (
+ jcomponentName java.lang.String,
+ START_SCN java.lang.String,
+ READ_LAG java.lang.String,
+ SOURCE_INPUT java.lang.String,
+ ORA_READER_LAST_OBSERVED_TIMESTAMP java.lang.String,
+ ORA_READER_LAST_OBSERVED_SCN java.lang.String,
+ TARGET_OUTPUT java.lang.String,
+ TARGET_ACKED java.lang.String,
+ OUTPUT_RATE java.lang.String,
+ CDC_OPERATION java.lang.String,
+ TOTAL_NO_OF_OPERATIONS java.lang.String,
+ TABLE_INFO java.lang.String,
+ CHECKPOINT_STATUS java.lang.String,
+ CPU_THREAD java.lang.String,
+ TABLE_INFO2 java.lang.String,
+ LATEST_ACTIVITY java.lang.String,
+ jMetricTime org.joda.time.DateTime KEY);
+
+CREATE OR REPLACE TYPE JMX_CQ_OUT_Type (
+ jcomponentName java.lang.String,
+ START_SCN java.lang.String,
+ READ_LAG java.lang.String,
+ SOURCE_INPUT java.lang.String,
+ ORA_READER_LAST_OBSERVED_TIMESTAMP java.lang.String,
+ ORA_READER_LAST_OBSERVED_SCN java.lang.String,
+ TARGET_OUTPUT java.lang.String,
+ TARGET_ACKED java.lang.String,
+ OUTPUT_RATE java.lang.String,
+ CDC_OPERATION java.lang.String,
+ TOTAL_NO_OF_OPERATIONS java.lang.String,
+ TABLE_INFO java.lang.String,
+ CHECKPOINT_STATUS java.lang.String,
+ CPU_THREAD java.lang.String,
+ TABLE_INFO2 java.lang.String,
+ LATEST_ACTIVITY java.lang.String,
+ jMetricTime java.lang.Integer KEY);
+
+CREATE OR REPLACE TYPE JMXWaction (
+ ComponentName java.lang.String,
+ MetricName java.lang.String,
+ MetricType java.lang.String,
+ MetricValue java.lang.String,
+ MetricTime org.joda.time.DateTime KEY);
+
+CREATE OR REPLACE TYPE JMX_OUT_1_Type (
+ jcomponentName java.lang.String,
+ START_SCN java.lang.String,
+ READ_LAG java.lang.String,
+ SOURCE_INPUT java.lang.String,
+ ORA_READER_LAST_OBSERVED_TIMESTAMP java.lang.String,
+ ORA_READER_LAST_OBSERVED_SCN java.lang.String,
+ TARGET_OUTPUT java.lang.String,
+ TARGET_ACKED java.lang.String,
+ OUTPUT_RATE java.lang.String,
+ CDC_OPERATION java.lang.String,
+ TOTAL_NO_OF_OPERATIONS java.lang.String,
+ TABLE_INFO java.lang.String,
+ CHECKPOINT_STATUS java.lang.String,
+ CPU_THREAD java.lang.String,
+ TABLE_INFO2 java.lang.String,
+ LATEST_ACTIVITY java.lang.String,
+ jMetricTime org.joda.time.DateTime KEY);
+
+CREATE OR REPLACE TYPE JMX_3_Type (
+ jcomponentName java.lang.String,
+ START_SCN java.lang.String,
+ READ_LAG java.lang.String,
+ SOURCE_INPUT java.lang.String,
+ ORA_READER_LAST_OBSERVED_TIMESTAMP java.lang.String,
+ ORA_READER_LAST_OBSERVED_SCN java.lang.String,
+ TARGET_OUTPUT java.lang.String,
+ TARGET_ACKED java.lang.String,
+ OUTPUT_RATE java.lang.String,
+ CDC_OPERATION java.lang.String,
+ TOTAL_NO_OF_OPERATIONS java.lang.String,
+ TABLE_INFO java.lang.String,
+ CHECKPOINT_STATUS java.lang.String,
+ CPU_THREAD java.lang.String,
+ TABLE_INFO2 java.lang.String,
+ LATEST_ACTIVITY java.lang.String,
+ jMetricTime java.lang.Integer KEY);
+
+CREATE OR REPLACE SOURCE JMX_SRC USING Global.JMXReader ( 
+  pollinterval: '60', 
+  adapterName: 'JMXReader', 
+  connectionretrypolicy: 'retryInterval=30,maxRetries=3', 
+  serviceurl: 'service:jmx:rmi:///jndi/rmi://localhost:8855/jmxrmi' ) 
+OUTPUT TO JMX_SRC_OP;
+
+CREATE OR REPLACE TYPE JMX_OUT1_Type (
+ jcomponentName java.lang.String,
+ START_SCN java.lang.String,
+ READ_LAG java.lang.String,
+ SOURCE_INPUT java.lang.String,
+ ORA_READER_LAST_OBSERVED_TIMESTAMP java.lang.String,
+ ORA_READER_LAST_OBSERVED_SCN java.lang.String,
+ TARGET_OUTPUT java.lang.String,
+ TARGET_ACKED java.lang.String,
+ OUTPUT_RATE java.lang.String,
+ CDC_OPERATION java.lang.String,
+ TOTAL_NO_OF_OPERATIONS java.lang.String,
+ TABLE_INFO java.lang.String,
+ CHECKPOINT_STATUS java.lang.String,
+ CPU_THREAD java.lang.String,
+ TABLE_INFO2 java.lang.String,
+ LATEST_ACTIVITY java.lang.String,
+ to_intjMetricTime org.joda.time.DateTime KEY);
+
+CREATE OR REPLACE WACTIONSTORE JMXWaction CONTEXT OF JMXWaction USING ( storageProvider: 'elasticsearch', elasticsearch.time_to_live: '2h' );
+
+CREATE OR REPLACE CQ JMX_L1_CQ 
+INSERT INTO JMX_L1_CQ_OP 
+SELECT DNOW() as curTime, DHOURS(curTime) as thehour, data.get("ObjectName").textValue() as objectName, data.get("Attributes") attrs FROM JMX_SRC_OP j;
+
+CREATE OR REPLACE CQ JMX_L2_CQ 
+INSERT INTO JMX_L2_ 
+SELECT 
+ms.objectname.substring(ms.objectname.lastIndexOf("name=")+5,
+ms.objectname.length()) as ComponentName, 
+ms.curTime as MetricTime, 
+attritr.get(0).textValue() as MetricName, 
+attritr.get(1).textValue() as MetricType, 
+attritr.get(2).textValue() as MetricValue
+FROM JMX_L1_CQ_OP ms,iterator(ms.attrs) 
+attritr HAVING ComponentName in ("ROLLUP.admin.OracleCdcToSnowFlakeSrc","ROLLUP.admin.OracleCdcToSnowFlakeTgt")
+;;
+
+CREATE OR REPLACE CQ JMX_L3_CQ 
+INSERT INTO JMX_L3_CQ 
+SELECT 
+j.ComponentName,
+j.MetricTime,
+j.MetricName,
+j.MetricType,
+j.MetricValue
+FROM JMX_L2_ j
+where j.MetricName in (
+'START_SCN',
+'READ_LAG',
+'SOURCE_INPUT',
+'ORA_READER_LAST_OBSERVED_TIMESTAMP',
+'ORA_READER_LAST_OBSERVED_SCN',
+'TARGET_OUTPUT',
+'TARGET_ACKED',
+'OUTPUT_RATE',
+'CDC_OPERATION',
+'TOTAL_NO_OF_OPERATIONS',
+'TABLE_INFO',
+'TABLE_WRITE_INFO',
+'CHECKPOINT_STATUS',
+'CPU_THREAD',
+'CPU_RATE',
+'LATEST_ACTIVITY'
+);;
+
+CREATE OR REPLACE CQ JMX_L4_CQ 
+INSERT INTO JMXWaction 
+SELECT 
+jComponentName,
+jMetricName,
+jMetricType,
+jMetricValue,
+jMetricTime
+FROM JMX_L3_CQ j;;
+
+END APPLICATION JMX_Monitor_App;
+

@@ -1,0 +1,5 @@
+
+CREATE APPLICATION Salesforce_dev;
+
+END APPLICATION Salesforce_dev;
+

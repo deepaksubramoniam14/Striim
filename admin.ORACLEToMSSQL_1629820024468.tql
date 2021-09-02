@@ -1,0 +1,104 @@
+
+CREATE APPLICATION ORACLEToMSSQL;
+
+CREATE OR REPLACE SOURCE oraclecdcBi_src USING Global.OracleReader ( 
+  TransactionBufferDiskLocation: '.striim/LargeBuffer', 
+  adapterName: 'OracleReader', 
+  OutboundServerProcessName: 'WebActionXStream', 
+  DatabaseRole: 'PRIMARY', 
+  DDLCaptureMode: 'All', 
+  Compression: false, 
+  ReaderType: 'LogMiner', 
+  FetchSize: 1, 
+  connectionRetryPolicy: 'timeOut=30, retryInterval=30, maxRetries=3', 
+  Password_encrypted: 'true', 
+  SupportPDB: false, 
+  QuiesceMarkerTable: 'QUIESCEMARKER', 
+  CommittedTransactions: true, 
+  QueueSize: 2048, 
+  XstreamTimeOut: 600, 
+  DictionaryMode: 'OnlineCatalog', 
+  ConnectionURL: 'jdbc:oracle:thin:@localhost:1521:orcl', 
+  TransactionBufferSpilloverSize: '1MB', 
+  Password: 'vWFE5MF/N9UKXR/k5xE+AA==', 
+  TransactionBufferType: 'Memory', 
+  Username: 'TARGET', 
+  Tables: 'TARGET.EMPLOYEE;', 
+  FilterTransactionBoundaries: true, 
+  SendBeforeImage: true ) 
+OUTPUT TO oraclecdcBi_src_op;
+
+CREATE OR REPLACE SOURCE oraclecdc_src USING Global.OracleReader ( 
+  TransactionBufferDiskLocation: '.striim/LargeBuffer', 
+  adapterName: 'OracleReader', 
+  OutboundServerProcessName: 'WebActionXStream', 
+  DatabaseRole: 'PRIMARY', 
+  Tables: 'SOURCE.E%;', 
+  DDLCaptureMode: 'All', 
+  Compression: false, 
+  ReaderType: 'LogMiner', 
+  FetchSize: 1, 
+  connectionRetryPolicy: 'timeOut=30, retryInterval=30, maxRetries=3', 
+  Password_encrypted: 'true', 
+  SupportPDB: false, 
+  QuiesceMarkerTable: 'QUIESCEMARKER', 
+  CommittedTransactions: true, 
+  QueueSize: 2048, 
+  XstreamTimeOut: 600, 
+  DictionaryMode: 'OnlineCatalog', 
+  ConnectionURL: 'jdbc:oracle:thin:@localhost:1521:orcl', 
+  TransactionBufferSpilloverSize: '1MB', 
+  Username: 'source', 
+  TransactionBufferType: 'Memory', 
+  Password: 'gd3B9oMxWtlZPf0HbGVTuA==', 
+  FilterTransactionBoundaries: true, 
+  SendBeforeImage: true ) 
+OUTPUT TO oraclecdc_src_op;
+
+CREATE OR REPLACE TYPE BI_CQ1__Type (
+ data [Ljava.lang.Object;,
+ userdata java.util.HashMap,
+ before [Ljava.lang.Object;);
+
+CREATE OR REPLACE CQ BI_CQ2 
+INSERT INTO BI_CQ2_OP 
+SELECT * FROM oraclecdcBi_src_op o where meta(o,'TxnUserID').toString()  not in ('STRIIM1','STRIIM');
+
+CREATE OR REPLACE CQ BI_CQ1 
+INSERT INTO BI_CQ1_ 
+SELECT * FROM oraclecdc_src_op o where meta(o,'TxnUserID').toString() NOT IN ('STRIIM1','STRIIM');
+
+CREATE OR REPLACE TARGET DB_TGT USING Global.DatabaseWriter ( 
+  ConnectionRetryPolicy: 'retryInterval=30, maxRetries=3', 
+  CheckPointTable: 'CHKPOINT', 
+  Tables: 'TARGET.EMPLOYEE,SOURCE.EMPLOYEE;', 
+  Password_encrypted: 'true', 
+  ConnectionURL: 'jdbc:oracle:thin:@localhost:1521:orcl', 
+  StatementCacheSize: '50', 
+  CommitPolicy: 'EventCount:1,Interval:60', 
+  DatabaseProviderType: 'Default', 
+  PreserveSourceTransactionBoundary: 'false', 
+  Username: 'STRIIM', 
+  BatchPolicy: 'EventCount:1,Interval:60', 
+  Password: 'oQ7AuMLFPz55u3k4kRRHTA==', 
+  adapterName: 'DatabaseWriter' ) 
+INPUT FROM BI_CQ2_OP;
+
+CREATE OR REPLACE TARGET SQLDB_OP USING Global.DatabaseWriter ( 
+  ConnectionRetryPolicy: 'retryInterval=30, maxRetries=3', 
+  CheckPointTable: 'CHKPOINT', 
+  Password_encrypted: 'true', 
+  ConnectionURL: 'jdbc:oracle:thin:@localhost:1521:orcl', 
+  StatementCacheSize: '50', 
+  CommitPolicy: 'EventCount:1,Interval:60', 
+  DatabaseProviderType: 'Default', 
+  Password: 'OJF6OhiOlfTAPxIiK8dYOA==', 
+  Username: 'striim1', 
+  PreserveSourceTransactionBoundary: 'false', 
+  BatchPolicy: 'EventCount:1,Interval:60', 
+  Tables: 'SOURCE.EMPLOYEE,TARGET.EMPLOYEE;', 
+  adapterName: 'DatabaseWriter' ) 
+INPUT FROM BI_CQ1_;
+
+END APPLICATION ORACLEToMSSQL;
+

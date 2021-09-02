@@ -1,0 +1,53 @@
+
+CREATE APPLICATION SampleoracleCDC1;
+
+CREATE OR REPLACE SOURCE oracdcsource1 USING Global.OracleReader ( 
+  TransactionBufferDiskLocation: '.striim/LargeBuffer', 
+  ConnectionURL: 'jdbc:oracle:thin:@localhost:1521/ORCL', 
+  adapterName: 'OracleReader', 
+  OutboundServerProcessName: 'WebActionXStream', 
+  DatabaseRole: 'PRIMARY', 
+  DDLCaptureMode: 'All', 
+  Compression: false, 
+  ReaderType: 'LogMiner', 
+  Password: 't48M5joJxC+rmpXSI20agq7Xi6KdAkEwW1uODe6HHFo=', 
+  connectionRetryPolicy: 'timeOut=30, retryInterval=30, maxRetries=3', 
+  Password_encrypted: 'true', 
+  SupportPDB: false, 
+  FetchSize: 2, 
+  QuiesceMarkerTable: 'QUIESCEMARKER', 
+  CommittedTransactions: true, 
+  QueueSize: 2048, 
+  XstreamTimeOut: 600, 
+  DictionaryMode: 'OnlineCatalog', 
+  Username: 'striim', 
+  TransactionBufferSpilloverSize: '1MB', 
+  Tables: 'STRIIM.EMP', 
+  TransactionBufferType: 'Memory', 
+  FilterTransactionBoundaries: true, 
+  SendBeforeImage: true ) 
+OUTPUT TO ORACDCOUT1;
+
+CREATE OR REPLACE CQ sampleCQ 
+INSERT INTO sampleCQ_OP 
+SELECT data[0] as EMP_ID,data[1] as EMP_NAME,data[2] as EMP_CITY FROM ORACDCOUT1 o;
+
+CREATE OR REPLACE TARGET sampleoracdcout1 USING Global.DatabaseWriter ( 
+  ConnectionRetryPolicy: 'retryInterval=30, maxRetries=3', 
+  Password: 't48M5joJxC+rmpXSI20agq7Xi6KdAkEwW1uODe6HHFo=', 
+  CheckPointTable: 'CHKPOINT', 
+  Password_encrypted: 'true', 
+  CommitPolicy: 'EventCount:1,Interval:2', 
+  Username: 'striim', 
+  Tables: 'STRIIM.EMP1;', 
+  IgnorableExceptionCode: '1', 
+  StatementCacheSize: '50', 
+  DatabaseProviderType: 'Default', 
+  ConnectionURL: 'jdbc:oracle:thin:@localhost:1521/orcl', 
+  BatchPolicy: 'EventCount:1,Interval:2', 
+  PreserveSourceTransactionBoundary: 'false', 
+  adapterName: 'DatabaseWriter' ) 
+INPUT FROM sampleCQ_OP;
+
+END APPLICATION SampleoracleCDC1;
+

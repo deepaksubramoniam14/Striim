@@ -1,0 +1,72 @@
+
+CREATE APPLICATION AlbertsonKafka_Database;
+
+CREATE OR REPLACE TYPE JSONREADERCQ_OUT_Type (
+ COMPONENT_ID java.lang.String,
+ COMPONENT_NAME java.lang.String,
+ COMPONENT_TYPE java.lang.String,
+ APPLICATION_NAME java.lang.String,
+ BO_NAME java.lang.String,
+ INPUT_TYPE java.lang.String,
+ INPUT_NAME java.lang.String,
+ MSG_DIRECTION java.lang.String,
+ SOURCE_SYSTEM_NAME java.lang.String,
+ AUDITING_SYSTEM java.lang.String,
+ TRANSACTION_ID java.lang.String,
+ MSG_UNQ_ID java.lang.String,
+ MISC_DATA java.lang.String,
+ ACTUAL_MESSAGE java.lang.String,
+ FLOW_PROCESSED_TIMESTAMP org.joda.time.DateTime,
+ DB_INSERT_TIMESTAMP org.joda.time.DateTime);
+
+CREATE SOURCE JSONFileReader USING Global.FileReader ( 
+  wildcard: 'GroceryOrder_ERUMS_Input.json', 
+  positionbyeof: true, 
+  rolloverstyle: 'Default', 
+  blocksize: 64, 
+  skipbom: true, 
+  includesubdirectories: false, 
+  directory: 'E:/Striim_3.10.3.2/Striim/' ) 
+PARSE USING Global.JSONParser ( 
+ ) 
+OUTPUT TO JSONFileReaderStream;
+
+CREATE OR REPLACE CQ JSONREADERCQ 
+INSERT INTO JSONREADER_OUT 
+SELECT
+'1' as COMPONENT_ID,
+'ESED_GroceryOrder_OMS_IH_Publisher' as COMPONENT_NAME,
+'PF' as COMPONENT_TYPE,
+'ESED_GroceryOrder_OMS_IH_Publisher' as APPLICATION_NAME,
+'GroceryOrder' as BO_NAME,
+'KAFKA' as INPUT_TYPE,
+'OSCO_ESED_C02_ORDER' as INPUT_NAME,
+'Output' as MSG_DIRECTION,
+'OMS' as SOURCE_SYSTEM_NAME,
+'Broker:IIBPRD6E-EG:es00ed02 - QueueManager:IIBPGVD6E - Broker_OS:UNIX' as AUDITING_SYSTEM,
+'OSCO_ESED_C02_ORDER_20210716145516352824' as TRANSACTION_ID,
+'2021-07-16T14:55:16.364559' as MSG_UNQ_ID,
+'CMM COUNT : 1' as MISC_DATA,
+to_string(data) as ACTUAL_MESSAGE,
+DNOW() as FLOW_PROCESSED_TIMESTAMP,
+DNOW() as DB_INSERT_TIMESTAMP
+FROM JSONFileReaderStream j;
+
+CREATE OR REPLACE TARGET JSON_DB_TGT USING Global.DatabaseWriter ( 
+  Tables: 'STRIIM.JSON_GROCERYDATA', 
+  ConnectionRetryPolicy: 'retryInterval=30, maxRetries=3', 
+  CheckPointTable: 'CHKPOINT', 
+  Password_encrypted: 'false', 
+  Username: 'striim', 
+  ConnectionURL: 'jdbc:oracle:thin:@localhost:1521:orcl', 
+  StatementCacheSize: '50', 
+  CommitPolicy: 'EventCount:1,Interval:60', 
+  DatabaseProviderType: 'Default', 
+  PreserveSourceTransactionBoundary: 'false', 
+  BatchPolicy: 'EventCount:1,Interval:60', 
+  Password: 'oQ7AuMLFPz55u3k4kRRHTA==', 
+  adapterName: 'DatabaseWriter' ) 
+INPUT FROM JSONREADER_OUT;
+
+END APPLICATION AlbertsonKafka_Database;
+

@@ -1,0 +1,37 @@
+
+CREATE APPLICATION GGTrailFileToBQ;
+
+CREATE OR REPLACE SOURCE GGTrailFileToBQsrc USING Global.GGTrailReader ( 
+  SupportColumnCharset: false, 
+  DefinitionFile: 'E:\\\\Striim_3.10.3.2\\Trail File\\metagp.def', 
+  TrailDirectory: 'E:\\\\Striim_3.10.3.2\\Trail File\\', 
+  Compression: false, 
+  TrailFilePattern: 'gp*', 
+  FilterTransactionBoundaries: true, 
+  Tables: '%;', 
+  adapterName: 'GGTrailReader', 
+  TrailByteOrder: 'LittleEndian' ) 
+OUTPUT TO GGtrailfiletoBQSrcout;
+
+CREATE OR REPLACE TARGET GGTrailFiletoBQOut USING Global.BigQueryWriter ( 
+  ColumnDelimiter: '|', 
+  NullMarker: 'NULL', 
+  streamingUpload: 'false', 
+  Tables: 'STRIIM.GG_TRAIL_CUSTOMER,striim.GG_Trail_CUSTOMER;', 
+  Encoding: 'UTF-8', 
+  AllowQuotedNewLines: 'false', 
+  BatchPolicy: 'eventCount:50, Interval:3', 
+  optimizedMerge: 'false', 
+  projectId: 'striim-296201', 
+  adapterName: 'BigQueryWriter', 
+  Mode: 'APPENDONLY', 
+  ConnectionRetryPolicy: 'totalTimeout=60, initialRetryDelay=10, retryDelayMultiplier=2.0, maxRetryDelay=60 , maxAttempts=5, jittered=True, initialRpcTimeout=10, rpcTimeoutMultiplier=2.0, maxRpcTimeout=30', 
+  TransportOptions: 'connectionTimeout=30, readTimeout=60', 
+  ServiceAccountKey: 'E:/Striim_3.10.1ns/Striim/striim-296201-c46b6d7052be.json', 
+  StandardSQL: 'true', 
+  includeInsertId: 'true', 
+  QuoteCharacter: '\"' ) 
+INPUT FROM GGtrailfiletoBQSrcout;
+
+END APPLICATION GGTrailFileToBQ;
+

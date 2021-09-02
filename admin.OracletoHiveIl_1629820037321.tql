@@ -1,0 +1,30 @@
+
+CREATE APPLICATION OracletoHiveIl;
+
+CREATE SOURCE OracletoHiveILSrc USING Global.DatabaseReader ( 
+  Tables: 'STRIIM.EMP', 
+  DatabaseProviderType: 'Default', 
+  FetchSize: 100, 
+  ConnectionURL: 'jdbc:oracle:thin:@localhost:1521/orcl', 
+  QuiesceOnILCompletion: false, 
+  Password_encrypted: 'true', 
+  Username: 'striim', 
+  Password: 'oQ7AuMLFPz55u3k4kRRHTA==' ) 
+OUTPUT TO OracletoHiveILSrc_out;
+
+CREATE OR REPLACE TARGET OracleTohiveIL_Tgt USING Global.HiveWriter ( 
+  Mode: 'InitialLoad', 
+  adapterName: 'HiveWriter', 
+  hadoopurl: 'hdfs://dockers:9000/', 
+  Password_encrypted: 'true', 
+  ConnectionURL: 'jdbc:hive2://dockers:10000/employee', 
+  hadoopconfigurationpath: 'E:/DeepakSubramoniam/Learning/hadoop_conf', 
+  mergepolicy: 'eventcount:100,interval:1m', 
+  tables: 'STRIIM.EMP,employee.emp', 
+  directory: '/staging', 
+  Username: 'striim', 
+  Password: 'oQ7AuMLFPz55u3k4kRRHTA==' ) 
+INPUT FROM OracletoHiveILSrc_out;
+
+END APPLICATION OracletoHiveIl;
+

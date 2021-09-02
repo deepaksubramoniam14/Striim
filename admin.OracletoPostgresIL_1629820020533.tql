@@ -1,0 +1,32 @@
+
+CREATE APPLICATION OracletoPostgresIL;
+
+CREATE SOURCE OracleToPostgresIL_Src USING Global.DatabaseReader ( 
+  Tables: 'STRIIM.EMP', 
+  DatabaseProviderType: 'Default', 
+  FetchSize: 100, 
+  ConnectionURL: 'jdbc:oracle:thin:@localhost:1521/orcl', 
+  QuiesceOnILCompletion: false, 
+  Password_encrypted: 'true', 
+  Username: 'striim', 
+  Password: 'oQ7AuMLFPz55u3k4kRRHTA==' ) 
+OUTPUT TO OracletoPostgresIL_SrcOut;
+
+CREATE TARGET OracletoPostgresIL_Tgt USING Global.DatabaseWriter ( 
+  ConnectionRetryPolicy: 'retryInterval=30, maxRetries=3', 
+  ParallelThreads: '', 
+  CheckPointTable: 'CHKPOINT', 
+  Password_encrypted: 'true', 
+  Username: 'striim', 
+  CommitPolicy: 'EventCount:1000,Interval:60', 
+  StatementCacheSize: '50', 
+  ConnectionURL: 'jdbc:postgresql://localhost:5432/striimrepo', 
+  DatabaseProviderType: 'Postgres', 
+  BatchPolicy: 'EventCount:1000,Interval:60', 
+  PreserveSourceTransactionBoundary: 'false', 
+  Tables: 'STRIIM.EMP,STRIIM.EMP', 
+  Password: 'oQ7AuMLFPz55u3k4kRRHTA==' ) 
+INPUT FROM OracletoPostgresIL_SrcOut;
+
+END APPLICATION OracletoPostgresIL;
+

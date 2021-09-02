@@ -1,0 +1,47 @@
+
+CREATE APPLICATION OracleToHiveCDC;
+
+CREATE OR REPLACE SOURCE OracleToHiveCDC_Src USING Global.OracleReader ( 
+  ReaderType: 'LogMiner', 
+  Password_encrypted: 'true', 
+  SupportPDB: false, 
+  QuiesceMarkerTable: 'QUIESCEMARKER', 
+  CommittedTransactions: true, 
+  QueueSize: 2048, 
+  TransactionBufferType: 'Memory', 
+  StartSCN: '6146689', 
+  TransactionBufferDiskLocation: '.striim/LargeBuffer', 
+  Tables: 'STRIIM.EMP_CDC', 
+  adapterName: 'OracleReader', 
+  OutboundServerProcessName: 'WebActionXStream', 
+  DatabaseRole: 'PRIMARY', 
+  DDLCaptureMode: 'All', 
+  Compression: false, 
+  connectionRetryPolicy: 'timeOut=30, retryInterval=30, maxRetries=3', 
+  XstreamTimeOut: 600, 
+  DictionaryMode: 'OnlineCatalog', 
+  Username: 'striim', 
+  FetchSize: 10, 
+  TransactionBufferSpilloverSize: '1MB', 
+  ConnectionURL: 'jdbc:oracle:thin:@localhost:1521/orcl', 
+  FilterTransactionBoundaries: true, 
+  SendBeforeImage: true, 
+  Password: 'oQ7AuMLFPz55u3k4kRRHTA==' ) 
+OUTPUT TO OracleToHive_Src_Out;
+
+CREATE OR REPLACE TARGET OracleToHiveCDC_Tgt USING Global.HiveWriter ( 
+  adapterName: 'HiveWriter', 
+  hadoopurl: 'hdfs://dockers:9000/', 
+  Mode: 'Incremental', 
+  Password_encrypted: 'true', 
+  mergepolicy: 'eventcount:20,interval:1m', 
+  ConnectionURL: 'jdbc:hive2://dockers:10000/employee', 
+  hadoopconfigurationpath: 'E:/DeepakSubramoniam/Learning/hadoop_conf', 
+  directory: '/staging', 
+  tables: 'STRIIM.EMP_CDC,employee.emp_cdc', 
+  Username: 'striim', 
+  Password: 'oQ7AuMLFPz55u3k4kRRHTA==' ) 
+INPUT FROM OracleToHive_Src_Out;
+
+END APPLICATION OracleToHiveCDC;
+

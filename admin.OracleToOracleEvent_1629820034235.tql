@@ -1,0 +1,80 @@
+
+CREATE APPLICATION OracleToOracleEvent;
+
+CREATE SOURCE Eventtablecdc_ip USING Global.OracleReader ( 
+  TransactionBufferDiskLocation: '.striim/LargeBuffer', 
+  OutboundServerProcessName: 'WebActionXStream', 
+  DDLCaptureMode: 'All', 
+  Compression: false, 
+  ReaderType: 'LogMiner', 
+  connectionRetryPolicy: 'timeOut=30, retryInterval=30, maxRetries=3', 
+  FetchSize: 1, 
+  Password_encrypted: 'true', 
+  SupportPDB: false, 
+  QuiesceMarkerTable: 'QUIESCEMARKER', 
+  Username: 'striim', 
+  DictionaryMode: 'OnlineCatalog', 
+  QueueSize: 2048, 
+  CommittedTransactions: true, 
+  XstreamTimeOut: 600, 
+  ConnectionURL: 'jdbc:oracle:thin:@localhost:1521:orcl', 
+  TransactionBufferSpilloverSize: '1MB', 
+  Tables: 'STRIIM.EMP_SALARY', 
+  TransactionBufferType: 'Memory', 
+  FilterTransactionBoundaries: true, 
+  SendBeforeImage: true, 
+  Password: 'oQ7AuMLFPz55u3k4kRRHTA==', 
+  DatabaseRole: 'Primary' ) 
+OUTPUT TO Eventtablecdc_OP;
+
+CREATE SOURCE EventtableSrc USING Global.DatabaseReader ( 
+  DatabaseProviderType: 'Default', 
+  QuiesceOnILCompletion: false, 
+  Password_encrypted: 'true', 
+  Tables: 'STRIIM.EMP;', 
+  Username: 'striim', 
+  ConnectionURL: 'jdbc:oracle:thin:@localhost:1521:orcl', 
+  FetchSize: 10, 
+  Password: 'oQ7AuMLFPz55u3k4kRRHTA==' ) 
+OUTPUT TO EventtableSrc_op;
+
+CREATE CQ EventtableCQ_Ip 
+INSERT INTO EventtableCQ_OP 
+SELECT to_int(data[0]) as EMP_ID,to_string(data[1]) as EMP_NAME,to_string(data[2]) as EMP_CITY
+
+FROM EventtableSrc_op e;;
+
+CREATE EVENTTABLE Eventtable_test USING STREAM ( 
+  name: 'EventtableCQ_OP' ) 
+QUERY ( 
+  keytomap: 'EMP_ID',
+  persistPolicy: 'true' ) 
+OF EventtableCQ_OP_Type;
+
+CREATE CQ eventtableopCQ 
+INSERT INTO eventtableopCQ_op 
+SELECT e.emp_id,e.emp_name,e.emp_city ,to_int(o.data[1]) as salary
+
+FROM Eventtable_test e
+join Eventtablecdc_op o
+on to_int(e.emp_id)=to_int(o.data[0]);
+
+CREATE TARGET filetestevent USING Global.FileWriter ( 
+  DataEncryptionKeyPassphrase: '', 
+  filename: 'salary.txt', 
+  rolloverpolicy: 'EventCount:3,Interval:30s', 
+  rolloveronddl: 'true', 
+  encryptionpolicy: '', 
+  flushpolicy: 'EventCount:3,Interval:30s' ) 
+FORMAT USING Global.DSVFormatter  ( 
+  quotecharacter: '\"', 
+  columndelimiter: ',', 
+  nullvalue: 'NULL', 
+  usequotes: 'false', 
+  rowdelimiter: '\n', 
+  standard: 'none', 
+  header: 'false' ) 
+INPUT FROM eventtableopCQ_op;
+
+END APPLICATION OracleToOracleEvent;
+

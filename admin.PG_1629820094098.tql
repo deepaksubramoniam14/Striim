@@ -1,0 +1,18 @@
+
+CREATE APPLICATION PG;
+
+CREATE OR REPLACE SOURCE pg_src USING Global.PostgreSQLReader ( 
+  adapterName: 'PostgreSQLReader', 
+  ConnectionRetryPolicy: 'retryInterval=30, maxRetries=3', 
+  ReplicationSlotName: 'my_slot', 
+  StartLSN: 'LSN : {0/1674BC8}', 
+  Tables: 'STRIIM.EMPLOYEE;', 
+  Password_encrypted: 'true', 
+  FilterTransactionBoundaries: true, 
+  Username: 'striim', 
+  ConnectionURL: 'jdbc:postgresql://localhost:5432/striimrepo?stringtype=unspecified', 
+  Password: 'oQ7AuMLFPz55u3k4kRRHTA==' ) 
+OUTPUT TO pg_src_out;
+
+END APPLICATION PG;
+

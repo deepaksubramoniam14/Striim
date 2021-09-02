@@ -1,0 +1,150 @@
+
+CREATE APPLICATION ALBERTSONS_JSON_KAFKA_DATABASE;
+
+CREATE SOURCE JSONRAWDATA USING Global.FileReader ( 
+  wildcard: 'GroceryOrder_ERUMS_Input.json', 
+  positionbyeof: true, 
+  directory: 'E:/Striim_3.10.3.2/Striim', 
+  rolloverstyle: 'Default', 
+  blocksize: 64, 
+  skipbom: true, 
+  includesubdirectories: false ) 
+PARSE USING Global.JSONParser ( 
+ ) 
+OUTPUT TO JSONRAWDATASTREAM;
+
+CREATE SOURCE KafkaSource USING Global.KafkaReader VERSION '0.8.0' ( 
+  brokerAddress: 'localhost:9092', 
+  startOffset: '-1', 
+  blocksize: 10240, 
+  Topic: 'teststriim' ) 
+PARSE USING Global.JSONParser ( 
+ ) 
+OUTPUT TO KafkaSourceStream;
+
+CREATE OR REPLACE CQ GROCERYDATAHIERARCHYCQ 
+INSERT INTO GROCERYDATAHIERARCHYCQSTREAM 
+SELECT data.audit.createDate as AuditcreateDate,
+data.audit.createdBy as AuditcreatedBy,
+data.orderNumber as OrderNumber,
+data.versionNumber as versionNumber,
+data.orderStatus as orderStatus,
+data.companyId as companyId,
+data.banner as banner,
+data.storeNumber as storeNumber,
+data.messageAction as messageAction,
+data.orderEditCutoffDate as orderEditCutoffDate,
+data.orderCancelCutoffDate as orderCancelCutoffDate,
+data.orderCreatedDate as orderCreatedDate,
+data.sourceInfo.Actsource as sourceInfo,
+data.sourceInfo.enteredby as SIenteredBy,
+data.sourceInfo.deviceType as SIdeviceType,
+data.sourceInfo.appName as SIappName,
+data.orderType.isAutoReplenishment as OTPisAutoReplenishment,
+data.orderTotal.amount as OTamount,
+data.orderTotal.currency as OTcurrency,
+data.orderTotal.itemTotalAmount as OTitemTotalAmount,
+data.orderTotal.itemTotalAfterSavingsAmount as OTitemTotalAfterSavingsAmount,
+data.orderTotal.quotedOrderTotalAmount as quotedOrderTotalAmount,
+data.orderTotal.totalCardSavings as totalCardSavings,
+data.orderTotal.taxAndFees.totalTaxesAndFeesAmount as totalTaxesAndFeesAmount,
+data.orderTotal.taxAndFees.details as TaxDetails,
+data.customer.customerId as customerId,
+data.customer.clubCardNumber as clubCardNumber,
+data.customer.customerUUID as customerUUID,
+data.customer.isSubscription as isSubscription,
+data.customer.name.firstName as firstName,
+data.customer.name.lastName as lastName,
+data.customer.address as customeraddress,
+data.customer.contact as customercontact,
+data.customer.email as customeremail,
+data.customer.preference.optIn as customerpreference,
+data.paymentDetails as paymentDetails,
+data.subOrders as subOrders,
+data.storeInfo as storeInfo
+
+
+FROM JSONRAWDATASTREAM j;
+
+CREATE CQ KafkaDataFetchCQ 
+INSERT INTO KafkaDataFetchCQStream 
+SELECT * FROM KafkaSourceStream k;;
+
+CREATE OR REPLACE CQ CUSTOMERDATACQ 
+INSERT INTO CUSTOMERCQSTREAM 
+SELECT 
+g.AuditcreateDate as AuditcreateDate,
+g.AuditcreatedBy as AuditcreatedBy,
+g.OrderNumber as OrderNumber,
+g.versionNumber as versionNumber,
+g.orderStatus as orderStatus,
+g.companyId as companyId,
+g.banner as banner,
+g.storeNumber as storeNumber,
+g.messageAction as messageAction,
+g.orderEditCutoffDate as orderEditCutoffDate,
+g.orderCancelCutoffDate as orderCancelCutoffDate,
+g.orderCreatedDate as orderCreatedDate,
+g.sourceInfo as sourceInfo ,
+g.SIenteredBy as SIenteredBy,
+g.SIdeviceType as SIdeviceType,
+g.SIappName as SIappName,
+g.OTPisAutoReplenishment as OTPisAutoReplenishment,
+g.OTamount as OTamount,
+g.OTcurrency as OTcurrency,
+g.OTitemTotalAmount as OTitemTotalAmount,
+g.OTitemTotalAfterSavingsAmount as OTitemTotalAfterSavingsAmount,
+g.quotedOrderTotalAmount as quotedOrderTotalAmount,
+g.totalCardSavings as totalCardSavings,
+g.totalTaxesAndFeesAmount as totalTaxesAndFeesAmount,
+g.TaxDetails as TaxDetails,
+g.customerId as customerId,
+g.clubCardNumber as clubCardNumber,
+g.customerUUID as customerUUID,
+g.isSubscription as isSubscription,
+g.firstName as firstName,
+g.lastName as lastName,
+customeraddresselements.addressType as addresstype,
+customeraddresselements.addressLine1 as addressLine1,
+customeraddresselements.city as city,
+customeraddresselements.state as state,
+customeraddresselements.zipCode as zipCode,
+customeraddresselements.country as country,
+g.customercontact as customercontact,
+g.customeremail as customeremail,
+g.customerpreference as customerpreference,
+g.paymentDetails as paymentDetails,
+g.subOrders as SubOrders,
+g.storeInfo as storeInfo
+FROM GROCERYDATAHIERARCHYCQSTREAM
+g,iterator(g.customeraddress) customeraddresselements;
+
+CREATE OR REPLACE CQ CUSTOMERCONTACTCQ INSERT INTO CUSTOMERCONTACTCQSTREAM SELECT g.AuditcreateDate as AuditcreateDate, g.AuditcreatedBy as AuditcreatedBy, g.OrderNumber as OrderNumber, g.versionNumber as versionNumber, g.orderStatus as orderStatus, g.companyId as companyId, g.banner as banner, g.storeNumber as storeNumber, g.messageAction as messageAction, g.orderEditCutoffDate as orderEditCutoffDate, g.orderCancelCutoffDate as orderCancelCutoffDate, g.orderCreatedDate as orderCreatedDate, g.sourceInfo as sourceInfo , g.SIenteredBy as SIenteredBy, g.SIdeviceType as SIdeviceType, g.SIappName as SIappName, g.OTPisAutoReplenishment as OTPisAutoReplenishment, g.OTamount as OTamount, g.OTcurrency as OTcurrency, g.OTitemTotalAmount as OTitemTotalAmount, g.OTitemTotalAfterSavingsAmount as OTitemTotalAfterSavingsAmount, g.quotedOrderTotalAmount as quotedOrderTotalAmount, g.totalCardSavings as totalCardSavings, g.totalTaxesAndFeesAmount as totalTaxesAndFeesAmount, g.TaxDetails as TaxDetails, g.customerId as customerId, g.clubCardNumber as clubCardNumber, g.customerUUID as customerUUID, g.isSubscription as isSubscription, g.firstName as firstName, g.lastName as lastName, g.addresstype as addresstype, g.addressLine1 as addressLine1, g.city as city, g.state as state, g.zipCode as zipcode, g.country as country, customercontactelements.number as contactnumber,  g.customeremail as customeremail, g.customerpreference as customerpreference, g.paymentDetails as paymentDetails, g.subOrders as SubOrders, g.storeInfo as storeInfo FROM CUSTOMERCQSTREAM g,iterator(g.customercontact) customercontactelements;
+
+CREATE OR REPLACE CQ CUSTOMEREMAILDATACQ INSERT INTO CUSTOMEREMAILCQSTREAM SELECT g.AuditcreateDate as AuditcreateDate, g.AuditcreatedBy as AuditcreatedBy, g.OrderNumber as OrderNumber, g.versionNumber as versionNumber, g.orderStatus as orderStatus, g.companyId as companyId, g.banner as banner, g.storeNumber as storeNumber, g.messageAction as messageAction, g.orderEditCutoffDate as orderEditCutoffDate, g.orderCancelCutoffDate as orderCancelCutoffDate, g.orderCreatedDate as orderCreatedDate, g.sourceInfo as sourceInfo , g.SIenteredBy as SIenteredBy, g.SIdeviceType as SIdeviceType, g.SIappName as SIappName, g.OTPisAutoReplenishment as OTPisAutoReplenishment, g.OTamount as OTamount, g.OTcurrency as OTcurrency, g.OTitemTotalAmount as OTitemTotalAmount, g.OTitemTotalAfterSavingsAmount as OTitemTotalAfterSavingsAmount, g.quotedOrderTotalAmount as quotedOrderTotalAmount, g.totalCardSavings as totalCardSavings, g.totalTaxesAndFeesAmount as totalTaxesAndFeesAmount, g.TaxDetails as TaxDetails, g.customerId as customerId, g.clubCardNumber as clubCardNumber, g.customerUUID as customerUUID, g.isSubscription as isSubscription, g.firstName as firstName, g.lastName as lastName, g.addresstype as addresstype, g.addressLine1 as addressLine1, g.city as city, g.state as state, g.zipCode as zipcode, g.country as country, g.contactnumber as contactnumber,  customeremailelements.id as emailid, g.customerpreference as customerpreference, g.paymentDetails as paymentDetails, g.subOrders as SubOrders, g.storeInfo as storeInfo FROM CUSTOMERCONTACTCQSTREAM g,iterator(g.customeremail) customeremailelements;
+
+CREATE CQ CUSTOMERPREFERENCECQ INSERT INTO CUSTOMERPREFERENCECQSTREAM SELECT g.AuditcreateDate as AuditcreateDate, g.AuditcreatedBy as AuditcreatedBy, g.OrderNumber as OrderNumber, g.versionNumber as versionNumber, g.orderStatus as orderStatus, g.companyId as companyId, g.banner as banner, g.storeNumber as storeNumber, g.messageAction as messageAction, g.orderEditCutoffDate as orderEditCutoffDate, g.orderCancelCutoffDate as orderCancelCutoffDate, g.orderCreatedDate as orderCreatedDate, g.sourceInfo as sourceInfo , g.SIenteredBy as SIenteredBy, g.SIdeviceType as SIdeviceType, g.SIappName as SIappName, g.OTPisAutoReplenishment as OTPisAutoReplenishment, g.OTamount as OTamount, g.OTcurrency as OTcurrency, g.OTitemTotalAmount as OTitemTotalAmount, g.OTitemTotalAfterSavingsAmount as OTitemTotalAfterSavingsAmount, g.quotedOrderTotalAmount as quotedOrderTotalAmount, g.totalCardSavings as totalCardSavings, g.totalTaxesAndFeesAmount as totalTaxesAndFeesAmount, g.TaxDetails as TaxDetails, g.customerId as customerId, g.clubCardNumber as clubCardNumber, g.customerUUID as customerUUID, g.isSubscription as isSubscription, g.firstName as firstName, g.lastName as lastName, g.addresstype as addresstype, g.addressLine1 as addressLine1, g.city as city, g.state as state, g.zipCode as zipcode, g.country as country, g.contactnumber as contactnumber,  g.emailid as emailid,  customerpreferenceelements.id as preferenceid, customerpreferenceelements.isOptin as isOptin, g.paymentDetails as paymentDetails, g.subOrders as SubOrders, g.storeInfo as storeInfo FROM CUSTOMEREMAILCQSTREAM g,iterator(g.customerpreference) customerpreferenceelements;
+
+CREATE CQ PaymentDetailsCQ INSERT INTO PaymentDetailsCQS SELECT g.AuditcreateDate as AuditcreateDate, g.AuditcreatedBy as AuditcreatedBy, g.OrderNumber as OrderNumber, g.versionNumber as versionNumber, g.orderStatus as orderStatus, g.companyId as companyId, g.banner as banner, g.storeNumber as storeNumber, g.messageAction as messageAction, g.orderEditCutoffDate as orderEditCutoffDate, g.orderCancelCutoffDate as orderCancelCutoffDate, g.orderCreatedDate as orderCreatedDate, g.sourceInfo as sourceInfo , g.SIenteredBy as SIenteredBy, g.SIdeviceType as SIdeviceType, g.SIappName as SIappName, g.OTPisAutoReplenishment as OTPisAutoReplenishment, g.OTamount as OTamount, g.OTcurrency as OTcurrency, g.OTitemTotalAmount as OTitemTotalAmount, g.OTitemTotalAfterSavingsAmount as OTitemTotalAfterSavingsAmount, g.quotedOrderTotalAmount as quotedOrderTotalAmount, g.totalCardSavings as totalCardSavings, g.totalTaxesAndFeesAmount as totalTaxesAndFeesAmount, g.TaxDetails as TaxDetails, g.customerId as customerId, g.clubCardNumber as clubCardNumber, g.customerUUID as customerUUID, g.isSubscription as isSubscription, g.firstName as firstName, g.lastName as lastName, g.addresstype as addresstype, g.addressLine1 as addressLine1, g.city as city, g.state as state, g.zipCode as zipcode, g.country as country, g.contactnumber as contactnumber,  g.emailid as emailid,   g.preferenceid as preferenceid, g.isOptin as isOptin, paymentDetailselements.paymentType as paymentType, paymentDetailselements.paymentSubType as paymentSubType, paymentDetailselements.tokenNumber as tokenNumber, paymentDetailselements.cardExpiryMonth as cardExpiryMonth, paymentDetailselements.cardExpiryYear as cardExpiryYear, paymentDetailselements.zipcode as zipcode, paymentDetailselements.reqAuthorizationAmount as reqAuthorizationAmount, paymentDetailselements.cardHolderName as cardHolderName, paymentDetailselements.address.zipCode as zipCode, paymentDetailselements.paymentStatus.status as status, paymentDetailselements.paymentStatus.authorizationCode as authorizationCode, paymentDetailselements.paymentStatus.authorizationDate as authorizationDate, g.subOrders as SubOrders, g.storeInfo as storeInfo FROM CUSTOMERPREFERENCECQSTREAM g,iterator(g.paymentDetails) paymentDetailselements;
+
+CREATE OR REPLACE CQ SubOrdersCQ INSERT INTO SubOrdersCqDataStream SELECT g.AuditcreateDate as AuditcreateDate, g.AuditcreatedBy as AuditcreatedBy, g.OrderNumber as OrderNumber, g.versionNumber as versionNumber, g.orderStatus as orderStatus, g.companyId as companyId, g.banner as banner, g.storeNumber as storeNumber, g.messageAction as messageAction, g.orderEditCutoffDate as orderEditCutoffDate, g.orderCancelCutoffDate as orderCancelCutoffDate, g.orderCreatedDate as orderCreatedDate, g.sourceInfo as sourceInfo , g.SIenteredBy as SIenteredBy, g.SIdeviceType as SIdeviceType, g.SIappName as SIappName, g.OTPisAutoReplenishment as OTPisAutoReplenishment, g.OTamount as OTamount, g.OTcurrency as OTcurrency, g.OTitemTotalAmount as OTitemTotalAmount, g.OTitemTotalAfterSavingsAmount as OTitemTotalAfterSavingsAmount, g.quotedOrderTotalAmount as quotedOrderTotalAmount, g.totalCardSavings as totalCardSavings, g.totalTaxesAndFeesAmount as totalTaxesAndFeesAmount, g.TaxDetails as TaxDetails, g.customerId as customerId, g.clubCardNumber as clubCardNumber, g.customerUUID as customerUUID, g.isSubscription as isSubscription, g.firstName as firstName, g.lastName as lastName, g.addresstype as addresstype, g.addressLine1 as addressLine1, g.city as city, g.state as state, g.zipCode as zipcode, g.country as country, g.contactnumber as contactnumber,  g.emailid as emailid,  g.preferenceid as preferenceid, g.isOptin as isOptin, g.paymentType as paymentType, g.paymentSubType as paymentSubType, g.tokenNumber as tokenNumber, g.cardExpiryMonth as cardExpiryMonth, g.cardExpiryYear as cardExpiryYear, g.zipcode as zipcode, g.reqAuthorizationAmount as reqAuthorizationAmount, g.cardHolderName as cardHolderName, g.zipCode as zipCode, g.status as status, g.authorizationCode as authorizationCode, g.authorizationDate as authorizationDate, SubOrderselements.subOrderNumber as subOrderNumber, SubOrderselements.itemCount as itemCount, SubOrderselements.fulfillmentType as fulfillmentType, SubOrderselements.subOrderType.isRescheduled as isRescheduled, SubOrderselements.subOrderType.isMto as isMto, SubOrderselements.customerService.contact.number as cscontactnumber,  SubOrderselements.customerService.contact.subType as cssubtype, SubOrderselements.deliveryInfo.deliverySubType as deliverySubType, SubOrderselements.deliveryInfo.deliveryInfo.slotInfo.slotPlan as slotPlan, SubOrderselements.deliveryInfo.slotInfo.slotType as slotType, SubOrderselements.deliveryInfo.slotInfo.slotId as slotId, SubOrderselements.deliveryInfo.slotInfo.timeZone as timeZone, SubOrderselements.deliveryInfo.slotInfo.startTime as startTime, SubOrderselements.deliveryInfo.slotInfo.endTime as endTime, SubOrderselements.deliveryInfo.slotInfo.editingCutoffDate as editingCutoffDate, SubOrderselements.deliveryInfo.deliveryServiceType as deliveryServiceType, SubOrderselements.deliveryInfo.instructions as instructions, SubOrderselements.deliveryInfo.stageByDateTime as stageByDateTime, SubOrderselements.charges as charges, SubOrderselements.promoCodes as promoCodes, SubOrderselements.orderLines as orderlines, SubOrderselements.messageAction as messageAction, g.storeInfo as storeInfo FROM PaymentDetailsCQS g,iterator(g.SubOrders) SubOrderselements;
+
+CREATE CQ orderLinesCQ INSERT INTO OrderLinesCQStream SELECT g.AuditcreateDate as AuditcreateDate, g.AuditcreatedBy as AuditcreatedBy, g.OrderNumber as OrderNumber, g.versionNumber as versionNumber, g.orderStatus as orderStatus, g.companyId as companyId, g.banner as banner, g.storeNumber as storeNumber, g.messageAction as messageAction, g.orderEditCutoffDate as orderEditCutoffDate, g.orderCancelCutoffDate as orderCancelCutoffDate, g.orderCreatedDate as orderCreatedDate, g.sourceInfo as sourceInfo , g.SIenteredBy as SIenteredBy, g.SIdeviceType as SIdeviceType, g.SIappName as SIappName, g.OTPisAutoReplenishment as OTPisAutoReplenishment, g.OTamount as OTamount, g.OTcurrency as OTcurrency, g.OTitemTotalAmount as OTitemTotalAmount, g.OTitemTotalAfterSavingsAmount as OTitemTotalAfterSavingsAmount, g.quotedOrderTotalAmount as quotedOrderTotalAmount, g.totalCardSavings as totalCardSavings, g.totalTaxesAndFeesAmount as totalTaxesAndFeesAmount, g.TaxDetails as TaxDetails, g.customerId as customerId, g.clubCardNumber as clubCardNumber, g.customerUUID as customerUUID, g.isSubscription as isSubscription, g.firstName as firstName, g.lastName as lastName, g.addresstype as addresstype, g.addressLine1 as addressLine1, g.city as city, g.state as state, g.zipCode as zipcode, g.country as country, g.contactnumber as contactnumber,  g.emailid as emailid,  g.preferenceid as preferenceid, g.isOptin as isOptin, g.paymentType as paymentType, g.paymentSubType as paymentSubType, g.tokenNumber as tokenNumber, g.cardExpiryMonth as cardExpiryMonth, g.cardExpiryYear as cardExpiryYear, g.zipcode as zipcode, g.reqAuthorizationAmount as reqAuthorizationAmount, g.cardHolderName as cardHolderName, g.zipCode as zipCode, g.status as status, g.authorizationCode as authorizationCode, g.authorizationDate as authorizationDate, g.subOrderNumber as subOrderNumber, g.itemCount as itemCount, g.fulfillmentType as fulfillmentType, g.isRescheduled as isRescheduled, g.isMto as isMto, g.cscontactnumber as cscontactnumber,  g.cssubtype as cssubtype, g.deliverySubType as deliverySubType, g.slotPlan as slotPlan, g.slotType as slotType, g.slotId as slotId, g.timeZone as timeZone, g.startTime as startTime, g.endTime as endTime, g.editingCutoffDate as editingCutoffDate, g.deliveryServiceType as deliveryServiceType, g.instructions as instructions, g.stageByDateTime as stageByDateTime, g.charges as charges, g.promoCodes as promoCodes, orderlineselements.itemId as itemId, orderlineselements.itemDescription as itemDescription, orderlineselements.orderedQuantity as orderedQuantity, orderlineselements.unitOfMeasure as unitOfMeasure, orderlineselements.unitPrice.amount as amount, orderlineselements.unitPrice.currency as currency, orderlineselements.totalItemPrice as totalItemPrice, orderlineselements.substitutionCode as substitutionCode, orderlineselements.substitutionValue as substitutionValue, orderlineselements.isRegulatedItem as isRegulatedItem, orderlineselements.isReplenishItem as isReplenishItem, orderlineselements.isMtoProduct as isMtoProduct, orderlineselements.preparationTime as preparationTime, orderlineselements.comments as comments, orderlineselements.department.name as name, orderlineselements.aisle.id as aisleid, orderlineselements.aisle.name as name, orderlineselements.shelf as shelf, orderlineselements.itemPrice.itemCode as itemCode, orderlineselements.itemPrice.basePrice as basePrice, orderlineselements.itemPrice.sellByWeight as sellByWeight, g.messageAction as messageAction, g.storeInfo as storeInfo FROM SubOrdersCqDataStream g,iterator(g.orderlines) orderlineselements;
+
+CREATE CQ StoreInfoCQ INSERT INTO StoreInfoCQStream SELECT g.AuditcreateDate as AuditcreateDate, g.AuditcreatedBy as AuditcreatedBy, g.OrderNumber as OrderNumber, g.versionNumber as versionNumber, g.orderStatus as orderStatus, g.companyId as companyId, g.banner as banner, g.storeNumber as storeNumber, g.messageAction as messageAction, g.orderEditCutoffDate as orderEditCutoffDate, g.orderCancelCutoffDate as orderCancelCutoffDate, g.orderCreatedDate as orderCreatedDate, g.sourceInfo as sourceInfo , g.SIenteredBy as SIenteredBy, g.SIdeviceType as SIdeviceType, g.SIappName as SIappName, g.OTPisAutoReplenishment as OTPisAutoReplenishment, g.OTamount as OTamount, g.OTcurrency as OTcurrency, g.OTitemTotalAmount as OTitemTotalAmount, g.OTitemTotalAfterSavingsAmount as OTitemTotalAfterSavingsAmount, g.quotedOrderTotalAmount as quotedOrderTotalAmount, g.totalCardSavings as totalCardSavings, g.totalTaxesAndFeesAmount as totalTaxesAndFeesAmount, g.TaxDetails as TaxDetails, g.customerId as customerId, g.clubCardNumber as clubCardNumber, g.customerUUID as customerUUID, g.isSubscription as isSubscription, g.firstName as firstName, g.lastName as lastName, g.addresstype as addresstype, g.addressLine1 as addressLine1, g.city as city, g.state as state, g.zipCode as zipcode, g.country as country, g.contactnumber as contactnumber,  g.emailid as emailid,  g.preferenceid as preferenceid, g.isOptin as isOptin, g.paymentType as paymentType, g.paymentSubType as paymentSubType, g.tokenNumber as tokenNumber, g.cardExpiryMonth as cardExpiryMonth, g.cardExpiryYear as cardExpiryYear, g.zipcode as zipcode, g.reqAuthorizationAmount as reqAuthorizationAmount, g.cardHolderName as cardHolderName, g.zipCode as zipCode, g.status as status, g.authorizationCode as authorizationCode, g.authorizationDate as authorizationDate, g.subOrderNumber as subOrderNumber, g.itemCount as itemCount, g.fulfillmentType as fulfillmentType, g.isRescheduled as isRescheduled, g.isMto as isMto, g.cscontactnumber as cscontactnumber,  g.cssubtype as cssubtype, g.deliverySubType as deliverySubType, g.slotPlan as slotPlan, g.slotType as slotType, g.slotId as slotId, g.timeZone as timeZone, g.startTime as startTime, g.endTime as endTime, g.editingCutoffDate as editingCutoffDate, g.deliveryServiceType as deliveryServiceType, g.instructions as instructions, g.stageByDateTime as stageByDateTime, g.charges as charges, g.promoCodes as promoCodes, g.itemId as itemId, g.itemDescription as itemDescription, g.orderedQuantity as orderedQuantity, g.unitOfMeasure as unitOfMeasure, g.amount as amount, g.currency as currency, g.totalItemPrice as totalItemPrice, g.substitutionCode as substitutionCode, g.substitutionValue as substitutionValue, g.isRegulatedItem as isRegulatedItem, g.isReplenishItem as isReplenishItem, g.isMtoProduct as isMtoProduct, g.preparationTime as preparationTime, g.comments as comments, g.name as name, g.aisleid as aisleid, g.name as aislename, g.shelf as shelf, g.itemCode as itemCode, g.basePrice as basePrice, g.sellByWeight as sellByWeight, g.messageAction as messageAction,  storeInfoelements.value as storeInfovalue FROM OrderLinesCQStream g,iterator(g.storeInfo) storeInfoelements;
+
+CREATE CQ ProcessedCQ INSERT INTO ProcessedCQStream SELECT g.AuditcreateDate as AuditcreateDate, g.AuditcreatedBy as AuditcreatedBy, g.OrderNumber as OrderNumber, g.versionNumber as versionNumber, g.orderStatus as orderStatus, g.companyId as companyId, g.banner as banner, g.storeNumber as storeNumber, g.messageAction as messageAction, g.orderEditCutoffDate as orderEditCutoffDate, g.orderCancelCutoffDate as orderCancelCutoffDate, g.orderCreatedDate as orderCreatedDate, g.sourceInfo as sourceInfo , g.SIenteredBy as SIenteredBy, g.SIdeviceType as SIdeviceType, g.SIappName as SIappName, g.OTPisAutoReplenishment as OTPisAutoReplenishment, g.OTamount as OTamount, g.OTcurrency as OTcurrency, g.OTitemTotalAmount as OTitemTotalAmount, g.OTitemTotalAfterSavingsAmount as OTitemTotalAfterSavingsAmount, g.quotedOrderTotalAmount as quotedOrderTotalAmount, g.totalCardSavings as totalCardSavings, g.totalTaxesAndFeesAmount as totalTaxesAndFeesAmount, g.TaxDetails as TaxDetails, g.customerId as customerId, g.clubCardNumber as clubCardNumber, g.customerUUID as customerUUID, g.isSubscription as isSubscription, g.firstName as firstName, g.lastName as lastName, g.addresstype as addresstype, g.addressLine1 as addressLine1, g.city as city, g.state as state, g.zipCode as zipcode, g.country as country, g.contactnumber as contactnumber,  g.emailid as emailid,  g.preferenceid as preferenceid, g.isOptin as isOptin, g.paymentType as paymentType, g.paymentSubType as paymentSubType, g.tokenNumber as tokenNumber, g.cardExpiryMonth as cardExpiryMonth, g.cardExpiryYear as cardExpiryYear, g.zipcode as zipcode, g.reqAuthorizationAmount as reqAuthorizationAmount, g.cardHolderName as cardHolderName, g.zipCode as zipCode, g.status as status, g.authorizationCode as authorizationCode, g.authorizationDate as authorizationDate, g.subOrderNumber as subOrderNumber, g.itemCount as itemCount, g.fulfillmentType as fulfillmentType, g.isRescheduled as isRescheduled, g.isMto as isMto, g.cscontactnumber as cscontactnumber,  g.cssubtype as cssubtype, g.deliverySubType as deliverySubType, g.slotPlan as slotPlan, g.slotType as slotType, g.slotId as slotId, g.timeZone as timeZone, g.startTime as startTime, g.endTime as endTime, g.editingCutoffDate as editingCutoffDate, g.deliveryServiceType as deliveryServiceType, g.instructions as instructions, g.stageByDateTime as stageByDateTime, g.charges as charges, g.promoCodes as promoCodes, g.itemId as itemId, g.itemDescription as itemDescription, g.orderedQuantity as orderedQuantity, g.unitOfMeasure as unitOfMeasure, g.amount as amount, g.currency as currency, g.totalItemPrice as totalItemPrice, g.substitutionCode as substitutionCode, g.substitutionValue as substitutionValue, g.isRegulatedItem as isRegulatedItem, g.isReplenishItem as isReplenishItem, g.isMtoProduct as isMtoProduct, g.preparationTime as preparationTime, g.comments as comments, g.name as name, g.aisleid as aisleid, g.name as aislename, g.shelf as shelf, g.itemCode as itemCode, g.basePrice as basePrice, g.sellByWeight as sellByWeight, g.messageAction as messageAction,  g.storeInfovalue as storeInfovalue FROM StoreInfoCQStream g;;
+
+CREATE OR REPLACE TARGET KAFKATARGET USING Global.KafkaWriter VERSION '0.8.0'( 
+  brokerAddress: 'localhost:9092', 
+  adapterName: 'KafkaWriter', 
+  Mode: 'Sync', 
+  Topic: 'teststriim' ) 
+FORMAT USING Global.JSONFormatter  ( 
+  jsonMemberDelimiter: '\n', 
+  EventsAsArrayOfJsonObjects: 'true', 
+  jsonobjectdelimiter: '\n' ) 
+INPUT FROM ProcessedCQStream;
+
+END APPLICATION ALBERTSONS_JSON_KAFKA_DATABASE;
+

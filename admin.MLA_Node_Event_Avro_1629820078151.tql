@@ -1,0 +1,84 @@
+
+CREATE APPLICATION MLA_Node_Event_Avro;
+
+CREATE SOURCE MLA_NEA_SRC USING Global.FileReader ( 
+  positionbyeof: true, 
+  directory: 'E:/DeepakSubramoniam/Indium/striim/SuccessProgram/Albertson/App/', 
+  rolloverstyle: 'Default', 
+  blocksize: 64, 
+  wildcard: 'MerchandiseHier.json', 
+  skipbom: true, 
+  includesubdirectories: false ) 
+PARSE USING Global.JSONParser ( 
+ ) 
+OUTPUT TO MLA_NEA_SRC_OP;
+
+CREATE CQ MLA_CQ 
+INSERT INTO MLA_CQ_OP 
+SELECT data.MerchandiseHierarchyData as MerchandiseHierarchyData  FROM MLA_NEA_SRC_OP m;;
+
+CREATE CQ MLA_CQ_DataIterator 
+INSERT INTO MLA_CQ_DataIterator_OP 
+SELECT MerchandiseHierarchyDataElements.ProductGroup as ProductGroup  FROM MLA_CQ_OP m,iterator(m.MerchandiseHierarchyData) MerchandiseHierarchyDataElements;;
+
+CREATE CQ MLA_CQ_ProductGroup 
+INSERT INTO MLA_CQ_ProductGroup_OP 
+SELECT ProductGroupElements.ProductGroup.IdNbr as ProductGroup_IdNbr,
+ProductGroupElements.ProductGroup.IdTxt as ProductGroup_IdTxt,
+ProductGroupElements.ProductGroup.Description as ProductGroup_Description,
+ProductGroupElements.ProductCategoryCd as ProductCategoryCd FROM MLA_CQ_DataIterator_OP m,
+iterator(m.ProductGroup) ProductGroupElements;;
+
+CREATE CQ MLA_CQ_ProductCategory 
+INSERT INTO MLA_CQ_ProductCategory_OP 
+SELECT ProductGroup_IdNbr,
+ProductGroup_IdTxt,
+ProductGroup_Description,
+ProductCategoryCd_Elements.ProductCategory as ProductCategory,
+ProductCategoryCd_Elements.RetailSection as RetailSection,
+ProductCategoryCd_Elements.RetailDepartment as RetailDepartment,
+ProductCategoryCd_Elements.SMICGroup as SMICGroup,
+ProductCategoryCd_Elements.MerchandiseGroup as MerchandiseGroup,
+ProductCategoryCd_Elements.SizeUOM as SizeUOM,
+ProductCategoryCd_Elements.ProductClass as ProductClass
+FROM MLA_CQ_ProductGroup_OP m,
+iterator(m.ProductCategoryCd) ProductCategoryCd_Elements;
+
+CREATE CQ MLA_CQ_ProductClass 
+INSERT INTO MLA_CQ_ProductClass_OP 
+SELECT ProductGroup_IdNbr,
+ProductGroup_IdTxt,
+ProductGroup_Description,
+ProductCategory.IdNbr as ProductCategory_IdNbr,
+ProductCategory.IdTxt as ProductCategory_IdTxt,
+ProductCategory.Description as ProductCategory_Description,
+RetailSection.IdNbr as RetailSection_IdNbr,
+RetailSection.Description as RetailSection_Description,
+RetailDepartment.IdNbr as RetailDepartment_IdNbr,
+RetailDepartment.Description as RetailDepartment_Description,
+SMICGroup.IdNbr as SMICGroup_IdNbr,
+MerchandiseGroup.IdNbr as MerchandiseGroup_IdNbr,
+SizeUOM.Code as SizeUOM_Code,
+ProductClass_Elements.ProductClass as ProductClass_Elements_ProductClass,
+ProductClass_Elements.ProductSubClassLevel1 as ProductClass_Elements_ProductSubClassLevel1
+FROM MLA_CQ_ProductCategory_OP m,iterator(m.ProductClass) ProductClass_Elements;
+
+CREATE CQ MLA_CQ_MakeList 
+INSERT INTO MLA_CQ_MakeList_OP 
+SELECT makeList(ProductClass_Elements_ProductSubClassLevel1)  FROM MLA_CQ_ProductClass_OP m;;
+
+CREATE TARGET MLA_File_TGT USING Global.FileWriter ( 
+  DataEncryptionKeyPassphrase: '', 
+  directory: 'E:/tmp/', 
+  flushpolicy: 'EventCount:10000,Interval:30s', 
+  rolloveronddl: 'true', 
+  encryptionpolicy: '', 
+  filename: 'MerchandiseMakeList.avro', 
+  rolloverpolicy: 'EventCount:10000,Interval:30s' ) 
+FORMAT USING Global.AvroFormatter  ( 
+  schemaFileName: 'MerchandiseHierarchy.avsc', 
+  formatAs: 'default' ) 
+INPUT FROM MLA_CQ_MakeList_OP;
+
+END APPLICATION MLA_Node_Event_Avro;
+

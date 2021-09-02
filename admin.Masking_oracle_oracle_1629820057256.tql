@@ -1,0 +1,72 @@
+
+CREATE APPLICATION Masking_oracle_oracle;
+
+CREATE OR REPLACE SOURCE Masking_Oracle USING Global.OracleReader ( 
+  TransactionBufferDiskLocation: '.striim/LargeBuffer', 
+  adapterName: 'OracleReader', 
+  OutboundServerProcessName: 'WebActionXStream', 
+  DatabaseRole: 'PRIMARY', 
+  DDLCaptureMode: 'All', 
+  Compression: false, 
+  Tables: 'STRIIM.emp', 
+  ReaderType: 'LogMiner', 
+  FetchSize: 1, 
+  connectionRetryPolicy: 'timeOut=30, retryInterval=30, maxRetries=3', 
+  Password_encrypted: 'FALSE', 
+  SupportPDB: false, 
+  QuiesceMarkerTable: 'QUIESCEMARKER', 
+  CommittedTransactions: true, 
+  QueueSize: 2048, 
+  XstreamTimeOut: 600, 
+  DictionaryMode: 'OnlineCatalog', 
+  Username: 'striim', 
+  TransactionBufferSpilloverSize: '1MB', 
+  ConnectionURL: 'jdbc:oracle:thin:@localhost:1521/orcl', 
+  TransactionBufferType: 'Memory', 
+  FilterTransactionBoundaries: true, 
+  SendBeforeImage: true, 
+  Password: 'oQ7AuMLFPz55u3k4kRRHTA==' ) 
+OUTPUT TO output_Masking_Oracle;
+
+CREATE OR REPLACE CQ Umasked_orc_data 
+INSERT INTO nomasking_op 
+SELECT data[0] as emp_id,data[1] as emp_name,data[2] as emp_city FROM output_Masking_Oracle o;
+
+CREATE OR REPLACE CQ Masking_cq_oracle 
+INSERT INTO masking_cq_oracle_out 
+SELECT to_string (data[0]) as emp_id,maskCreditCardNumber(data[1], "ANONYMIZE_COMPLETELY") AS masked,to_string (data[2]) as emp_city FROM output_Masking_Oracle o;
+
+CREATE OR REPLACE TARGET tar_data USING Global.DatabaseWriter ( 
+  ConnectionRetryPolicy: 'retryInterval=30, maxRetries=3', 
+  DatabaseProviderType: 'Oracle', 
+  CheckPointTable: 'CHKPOINT', 
+  Password_encrypted: 'false', 
+  Tables: 'STRIIM.EMP2;', 
+  Username: 'striim', 
+  StatementCacheSize: '50', 
+  CommitPolicy: 'EventCount:1,Interval:60', 
+  ConnectionURL: 'jdbc:oracle:thin:@localhost:1521/orcl', 
+  PreserveSourceTransactionBoundary: 'false', 
+  BatchPolicy: 'EventCount:1,Interval:6', 
+  Password: 'oQ7AuMLFPz55u3k4kRRHTA==', 
+  adapterName: 'DatabaseWriter' ) 
+INPUT FROM nomasking_op;
+
+CREATE OR REPLACE TARGET tar_masking USING Global.DatabaseWriter ( 
+  ConnectionRetryPolicy: 'retryInterval=30, maxRetries=3', 
+  DatabaseProviderType: 'Oracle', 
+  CheckPointTable: 'CHKPOINT', 
+  Password_encrypted: 'false', 
+  Username: 'striim', 
+  StatementCacheSize: '50', 
+  CommitPolicy: 'EventCount:1,Interval:60', 
+  ConnectionURL: 'jdbc:oracle:thin:@localhost:1521/orcl', 
+  Tables: 'striim.EMP1;', 
+  PreserveSourceTransactionBoundary: 'false', 
+  BatchPolicy: 'EventCount:1,Interval:6', 
+  Password: 'oQ7AuMLFPz55u3k4kRRHTA==', 
+  adapterName: 'DatabaseWriter' ) 
+INPUT FROM masking_cq_oracle_out;
+
+END APPLICATION Masking_oracle_oracle;
+

@@ -1,0 +1,326 @@
+
+CREATE APPLICATION MERHIER USE EXCEPTIONSTORE TTL : '7d' ;
+
+CREATE OR REPLACE TYPE test12_Type (
+ Current_Date org.joda.time.DateTime,
+ replacestringpLIGHTHEAVY java.lang.String,
+ CONCAT java.lang.String,
+ ProductGroup_IdNbr java.lang.Integer,
+ ProductGroup_IdTxt java.lang.String,
+ ProductGroup_Description java.lang.String,
+ ProductCategory_IdNbr java.lang.Integer,
+ ProductCategory_IdTxt java.lang.String,
+ ProductCategory_Description java.lang.String,
+ RetailSection_IdNbr java.lang.String,
+ RetailSection_Description java.lang.String,
+ RetailDepartment_IdNbr java.lang.String,
+ RetailDepartment_Description java.lang.String,
+ SMICGroup_IdNbr java.lang.Integer,
+ MerchandiseGroup_IdNbr java.lang.Integer,
+ SizeUOM_Code java.lang.String,
+ ProductClass_Elements_ProductClass_IdNbr java.lang.Integer,
+ ProductClass_Elements_ProductClass_IdTxt java.lang.String,
+ ProductClass_Elements_ProductClass_Description java.lang.String,
+ ProductClass_Elements_ProductSubClassLevel1_Elements_ProductSubClassLevel_IdNbr java.lang.Integer,
+ ProductClass_Elements_ProductSubClassLevel1_Elements_ProductSubClassLevel_IdTxt java.lang.String,
+ ProductClass_Elements_ProductSubClassLevel1_Elements_ProductSubClassLevel_Description java.lang.String,
+ ProductSubClassLevel2_IdNbr java.lang.Integer,
+ ProductSubClassLevel2_IdTxt java.lang.String,
+ ProductSubClassLevel2_Description java.lang.String);
+
+CREATE OR REPLACE TYPE test1234_Type (
+ Current_Date org.joda.time.DateTime,
+ xyz java.lang.String,
+ CONCAT java.lang.String,
+ ProductGroup_IdNbr java.lang.Integer,
+ ProductGroup_IdTxt java.lang.String,
+ ProductGroup_Description java.lang.String,
+ ProductCategory_IdNbr java.lang.Integer,
+ ProductCategory_IdTxt java.lang.String,
+ ProductCategory_Description java.lang.String,
+ RetailSection_IdNbr java.lang.String,
+ RetailSection_Description java.lang.String,
+ RetailDepartment_IdNbr java.lang.String,
+ RetailDepartment_Description java.lang.String,
+ SMICGroup_IdNbr java.lang.Integer,
+ MerchandiseGroup_IdNbr java.lang.Integer,
+ SizeUOM_Code java.lang.String,
+ ProductClass_Elements_ProductClass_IdNbr java.lang.Integer,
+ ProductClass_Elements_ProductClass_IdTxt java.lang.String,
+ ProductClass_Elements_ProductClass_Description java.lang.String,
+ ProductClass_Elements_ProductSubClassLevel1_Elements_ProductSubClassLevel_IdNbr java.lang.Integer,
+ ProductClass_Elements_ProductSubClassLevel1_Elements_ProductSubClassLevel_IdTxt java.lang.String,
+ ProductClass_Elements_ProductSubClassLevel1_Elements_ProductSubClassLevel_Description java.lang.String,
+ ProductSubClassLevel2_IdNbr java.lang.Integer,
+ ProductSubClassLevel2_IdTxt java.lang.String,
+ ProductSubClassLevel2_Description java.lang.String);
+
+CREATE OR REPLACE SOURCE RAWMERHIER1JSON USING Global.FileReader ( 
+  adapterName: 'FileReader', 
+  rolloverstyle: 'Default', 
+  directory: 'E:/DeepakSubramoniam/Indium/striim/SuccessProgram/Albertson/App/', 
+  positionByEOF: false, 
+  blocksize: 64, 
+  wildcard: 'MerchandiseHier.json', 
+  skipbom: true, 
+  includesubdirectories: false ) 
+PARSE USING Global.JSONParser ( 
+  handler: 'com.webaction.proc.JSONParser_1_0', 
+  parserName: 'JSONParser', 
+  eventType: '' ) 
+OUTPUT TO RAWMERHIER1JSONStream;
+
+CREATE OR REPLACE CQ MerchandiseHierarchyDataCQ 
+INSERT INTO MerchandiseHierarchyDataCQStream 
+SELECT data.MerchandiseHierarchyData as MerchandiseHierarchyData FROM RAWMERHIER1JSONStream r;
+
+CREATE OR REPLACE CQ MerchandiseHierarchyDataIteratorCQ 
+INSERT INTO MerchandiseHierarchyData_IteratorCQ 
+SELECT MerchandiseHierarchyDataElements.ProductGroup as ProductGroup FROM MerchandiseHierarchyDataCQStream m,iterator(m.MerchandiseHierarchyData) MerchandiseHierarchyDataElements;
+
+CREATE OR REPLACE CQ ProductGroupIteratorCQ 
+INSERT INTO ProductGroupIteratorCQ_Stream 
+SELECT 
+ProductGroupElements.ProductGroup.IdNbr as ProductGroup_IdNbr,
+ProductGroupElements.ProductGroup.IdTxt as ProductGroup_IdTxt,
+ProductGroupElements.ProductGroup.Description as ProductGroup_Description,
+ProductGroupElements.ProductCategoryCd as ProductCategoryCd
+FROM MerchandiseHierarchyData_IteratorCQ m,
+iterator(m.ProductGroup) ProductGroupElements;
+
+CREATE CQ ProductCategoryCdIterator 
+INSERT INTO ProductCategoryCdIteratorStream 
+SELECT 
+ProductGroup_IdNbr,
+ProductGroup_IdTxt,
+ProductGroup_Description,
+ProductCategoryCd_Elements.ProductCategory as ProductCategory,
+ProductCategoryCd_Elements.RetailSection as RetailSection,
+ProductCategoryCd_Elements.RetailDepartment as RetailDepartment,
+ProductCategoryCd_Elements.SMICGroup as SMICGroup,
+ProductCategoryCd_Elements.MerchandiseGroup as MerchandiseGroup,
+ProductCategoryCd_Elements.SizeUOM as SizeUOM,
+ProductCategoryCd_Elements.ProductClass as ProductClass
+FROM ProductGroupIteratorCQ_Stream p,
+iterator(p.ProductCategoryCd) ProductCategoryCd_Elements;
+
+CREATE OR REPLACE CQ ProductCategoryCd_Extract_Elements 
+INSERT INTO ProductCategoryCd_Extract_ElementsStream 
+SELECT 
+ProductGroup_IdNbr,
+ProductGroup_IdTxt,
+ProductGroup_Description,
+ProductCategory.IdNbr as ProductCategory_IdNbr,
+ProductCategory.IdTxt as ProductCategory_IdTxt,
+ProductCategory.Description as ProductCategory_Description,
+RetailSection.IdNbr as RetailSection_IdNbr,
+RetailSection.Description as RetailSection_Description,
+RetailDepartment.IdNbr as RetailDepartment_IdNbr,
+RetailDepartment.Description as RetailDepartment_Description,
+SMICGroup.IdNbr as SMICGroup_IdNbr,
+MerchandiseGroup.IdNbr as MerchandiseGroup_IdNbr,
+SizeUOM.Code as SizeUOM_Code,
+ProductClass_Elements.ProductClass as ProductClass_Elements_ProductClass,
+ProductClass_Elements.ProductSubClassLevel1 as ProductClass_Elements_ProductSubClassLevel1
+FROM ProductCategoryCdIteratorStream p,
+iterator(p.ProductClass) ProductClass_Elements;
+
+CREATE CQ ProductCategoryCd_ProductSubClassLevel1 
+INSERT INTO ProductCategoryCd_ProductSubClassLevel1_Stream 
+SELECT 
+ProductGroup_IdNbr,
+ProductGroup_IdTxt,
+ProductGroup_Description,
+ProductCategory_IdNbr,
+ProductCategory_IdTxt,
+ProductCategory_Description,
+RetailSection_IdNbr,
+RetailSection_Description,
+RetailDepartment_IdNbr,
+RetailDepartment_Description,
+SMICGroup_IdNbr,
+MerchandiseGroup_IdNbr,
+SizeUOM_Code,
+ProductClass_Elements_ProductClass.IdNbr as ProductClass_Elements_ProductClass_IdNbr,
+ProductClass_Elements_ProductClass.IdTxt as ProductClass_Elements_ProductClass_IdTxt,
+ProductClass_Elements_ProductClass.Description as ProductClass_Elements_ProductClass_Description,
+ProductClass_Elements_ProductSubClassLevel1_Elements.ProductSubClassLevel as ProductClass_Elements_ProductSubClassLevel1_Elements_ProductSubClassLevel,
+ProductClass_Elements_ProductSubClassLevel1_Elements.ProductSubClassLevel2 as ProductClass_Elements_ProductSubClassLevel1_Elements_ProductSubClassLevel2
+FROM ProductCategoryCd_Extract_ElementsStream p,
+iterator(p.ProductClass_Elements_ProductSubClassLevel1) ProductClass_Elements_ProductSubClassLevel1_Elements;
+
+CREATE CQ Tcq 
+INSERT INTO Tcq_op 
+SELECT makeList(ProductClass_Elements_ProductSubClassLevel1)  FROM ProductCategoryCd_Extract_ElementsStream p;;
+
+CREATE CQ ProductCategoryCd_ProductSubClassLevel1_Extractor 
+INSERT INTO ProductCategoryCd_ProductSubClassLevel1_Extractor_Stream 
+SELECT 
+ProductGroup_IdNbr,
+ProductGroup_IdTxt,
+ProductGroup_Description,
+ProductCategory_IdNbr,
+ProductCategory_IdTxt,
+ProductCategory_Description,
+RetailSection_IdNbr,
+RetailSection_Description,
+RetailDepartment_IdNbr,
+RetailDepartment_Description,
+SMICGroup_IdNbr,
+MerchandiseGroup_IdNbr,
+SizeUOM_Code,
+ProductClass_Elements_ProductClass_IdNbr,
+ProductClass_Elements_ProductClass_IdTxt,
+ProductClass_Elements_ProductClass_Description,
+ProductClass_Elements_ProductSubClassLevel1_Elements_ProductSubClassLevel.IdNbr as ProductClass_Elements_ProductSubClassLevel1_Elements_ProductSubClassLevel_IdNbr,
+ProductClass_Elements_ProductSubClassLevel1_Elements_ProductSubClassLevel.IdTxt as ProductClass_Elements_ProductSubClassLevel1_Elements_ProductSubClassLevel_IdTxt,
+ProductClass_Elements_ProductSubClassLevel1_Elements_ProductSubClassLevel.Description as ProductClass_Elements_ProductSubClassLevel1_Elements_ProductSubClassLevel_Description,
+ProductClass_Elements_ProductSubClassLevel1_Elements_ProductSubClassLevel2_Elements.ProductSubClassLevel2 as ProductSubClassLevel2
+FROM ProductCategoryCd_ProductSubClassLevel1_Stream p,
+iterator(p.ProductClass_Elements_ProductSubClassLevel1_Elements_ProductSubClassLevel2) ProductClass_Elements_ProductSubClassLevel1_Elements_ProductSubClassLevel2_Elements;
+
+CREATE CQ ProductSubClassLevel2_Extractor 
+INSERT INTO ProductSubClassLevel2_Extractor_Stream 
+SELECT 
+ProductGroup_IdNbr,
+ProductGroup_IdTxt,
+ProductGroup_Description,
+ProductCategory_IdNbr,
+ProductCategory_IdTxt,
+ProductCategory_Description,
+RetailSection_IdNbr,
+RetailSection_Description,
+RetailDepartment_IdNbr,
+RetailDepartment_Description,
+SMICGroup_IdNbr,
+MerchandiseGroup_IdNbr,
+SizeUOM_Code,
+ProductClass_Elements_ProductClass_IdNbr,
+ProductClass_Elements_ProductClass_IdTxt,
+ProductClass_Elements_ProductClass_Description,
+ProductClass_Elements_ProductSubClassLevel1_Elements_ProductSubClassLevel_IdNbr,
+ProductClass_Elements_ProductSubClassLevel1_Elements_ProductSubClassLevel_IdTxt,
+ProductClass_Elements_ProductSubClassLevel1_Elements_ProductSubClassLevel_Description,
+ProductSubClassLevel2.IdNbr as ProductSubClassLevel2_IdNbr,
+ProductSubClassLevel2.IdTxt as ProductSubClassLevel2_IdTxt,
+ProductSubClassLevel2.Description as ProductSubClassLevel2_Description
+FROM ProductCategoryCd_ProductSubClassLevel1_Extractor_Stream p;
+
+CREATE OR REPLACE CQ DataTypeConversionCQ 
+INSERT INTO DataTypeConversion_CQStream 
+SELECT 
+TO_INT(TO_STRING(ProductGroup_IdNbr)) as ProductGroup_IdNbr,
+TO_STRING(ProductGroup_IdTxt) as ProductGroup_IdTxt,
+TO_STRING(ProductGroup_Description) as ProductGroup_Description,
+TO_INT(TO_STRING(ProductCategory_IdNbr)) as ProductCategory_IdNbr,
+TO_STRING(ProductCategory_IdTxt) as ProductCategory_IdTxt,
+TO_STRING(ProductCategory_Description) as ProductCategory_Description,
+TO_STRING(RetailSection_IdNbr) as RetailSection_IdNbr,
+TO_STRING(RetailSection_Description) as RetailSection_Description,
+TO_STRING(RetailDepartment_IdNbr) as RetailDepartment_IdNbr,
+TO_STRING(RetailDepartment_Description) as RetailDepartment_Description,
+TO_INT(TO_STRING(SMICGroup_IdNbr)) as SMICGroup_IdNbr,
+TO_INT(TO_STRING(MerchandiseGroup_IdNbr)) as MerchandiseGroup_IdNbr,
+TO_STRING(SizeUOM_Code) as SizeUOM_Code,
+TO_INT(TO_STRING(ProductClass_Elements_ProductClass_IdNbr)) as ProductClass_Elements_ProductClass_IdNbr,
+TO_STRING(ProductClass_Elements_ProductClass_IdTxt) as ProductClass_Elements_ProductClass_IdTxt,
+TO_STRING(ProductClass_Elements_ProductClass_Description) as ProductClass_Elements_ProductClass_Description,
+TO_INT(TO_STRING(ProductClass_Elements_ProductSubClassLevel1_Elements_ProductSubClassLevel_IdNbr)) as ProductClass_Elements_ProductSubClassLevel1_Elements_ProductSubClassLevel_IdNbr,
+TO_STRING(ProductClass_Elements_ProductSubClassLevel1_Elements_ProductSubClassLevel_IdTxt) as ProductClass_Elements_ProductSubClassLevel1_Elements_ProductSubClassLevel_IdTxt,
+TO_STRING(ProductClass_Elements_ProductSubClassLevel1_Elements_ProductSubClassLevel_Description) as ProductClass_Elements_ProductSubClassLevel1_Elements_ProductSubClassLevel_Description,
+TO_INT(TO_STRING(ProductSubClassLevel2_IdNbr)) as ProductSubClassLevel2_IdNbr,
+TO_STRING(ProductSubClassLevel2_IdTxt) as ProductSubClassLevel2_IdTxt,
+TO_STRING(ProductSubClassLevel2_Description) as ProductSubClassLevel2_Description
+FROM ProductSubClassLevel2_Extractor_Stream p;
+
+CREATE OR REPLACE CQ DatatypeConversionLeftRight 
+INSERT INTO DatatypeConversionLeftRight_out 
+SELECT TO_STRING(SLEFT(ProductGroup_Description,8).replaceall("LIGHT","light")) AS Left_String, 
+TO_STRING(SRIGHT(ProductGroup_Description,2)) AS Right_String, 
+TO_INT(TO_STRING(ProductGroup_IdNbr)) as ProductGroup_IdNbr, TO_STRING(ProductGroup_IdTxt) as ProductGroup_IdTxt, TO_STRING(ProductGroup_Description) as ProductGroup_Description, TO_INT(TO_STRING(ProductCategory_IdNbr)) as ProductCategory_IdNbr, TO_STRING(ProductCategory_IdTxt) as ProductCategory_IdTxt, TO_STRING(ProductCategory_Description) as ProductCategory_Description, TO_STRING(RetailSection_IdNbr) as RetailSection_IdNbr, TO_STRING(RetailSection_Description) as RetailSection_Description, TO_STRING(RetailDepartment_IdNbr) as RetailDepartment_IdNbr, TO_STRING(RetailDepartment_Description) as RetailDepartment_Description, TO_INT(TO_STRING(SMICGroup_IdNbr)) as SMICGroup_IdNbr, TO_INT(TO_STRING(MerchandiseGroup_IdNbr)) as MerchandiseGroup_IdNbr, TO_STRING(SizeUOM_Code) as SizeUOM_Code, TO_INT(TO_STRING(ProductClass_Elements_ProductClass_IdNbr)) as ProductClass_Elements_ProductClass_IdNbr, TO_STRING(ProductClass_Elements_ProductClass_IdTxt) as ProductClass_Elements_ProductClass_IdTxt, TO_STRING(ProductClass_Elements_ProductClass_Description) as ProductClass_Elements_ProductClass_Description, TO_INT(TO_STRING(ProductClass_Elements_ProductSubClassLevel1_Elements_ProductSubClassLevel_IdNbr)) as ProductClass_Elements_ProductSubClassLevel1_Elements_ProductSubClassLevel_IdNbr, TO_STRING(ProductClass_Elements_ProductSubClassLevel1_Elements_ProductSubClassLevel_IdTxt) as ProductClass_Elements_ProductSubClassLevel1_Elements_ProductSubClassLevel_IdTxt, TO_STRING(ProductClass_Elements_ProductSubClassLevel1_Elements_ProductSubClassLevel_Description) as ProductClass_Elements_ProductSubClassLevel1_Elements_ProductSubClassLevel_Description, TO_INT(TO_STRING(ProductSubClassLevel2_IdNbr)) as ProductSubClassLevel2_IdNbr, TO_STRING(ProductSubClassLevel2_IdTxt) as ProductSubClassLevel2_IdTxt, TO_STRING(ProductSubClassLevel2_Description) as ProductSubClassLevel2_Description FROM DataTypeConversion_CQStream p;;
+
+CREATE OR REPLACE CQ DataTypeConversionCQNewColumn 
+INSERT INTO DataTypeConversionCQNewColumn_out 
+SELECT DNOW() as Current_Date, 
+TO_INT(TO_STRING(ProductGroup_IdNbr)) as ProductGroup_IdNbr, TO_STRING(ProductGroup_IdTxt) as ProductGroup_IdTxt, TO_STRING(ProductGroup_Description) as ProductGroup_Description, TO_INT(TO_STRING(ProductCategory_IdNbr)) as ProductCategory_IdNbr, TO_STRING(ProductCategory_IdTxt) as ProductCategory_IdTxt, TO_STRING(ProductCategory_Description) as ProductCategory_Description, TO_STRING(RetailSection_IdNbr) as RetailSection_IdNbr, TO_STRING(RetailSection_Description) as RetailSection_Description, TO_STRING(RetailDepartment_IdNbr) as RetailDepartment_IdNbr, TO_STRING(RetailDepartment_Description) as RetailDepartment_Description, TO_INT(TO_STRING(SMICGroup_IdNbr)) as SMICGroup_IdNbr, TO_INT(TO_STRING(MerchandiseGroup_IdNbr)) as MerchandiseGroup_IdNbr, TO_STRING(SizeUOM_Code) as SizeUOM_Code, TO_INT(TO_STRING(ProductClass_Elements_ProductClass_IdNbr)) as ProductClass_Elements_ProductClass_IdNbr, TO_STRING(ProductClass_Elements_ProductClass_IdTxt) as ProductClass_Elements_ProductClass_IdTxt, TO_STRING(ProductClass_Elements_ProductClass_Description) as ProductClass_Elements_ProductClass_Description, TO_INT(TO_STRING(ProductClass_Elements_ProductSubClassLevel1_Elements_ProductSubClassLevel_IdNbr)) as ProductClass_Elements_ProductSubClassLevel1_Elements_ProductSubClassLevel_IdNbr, TO_STRING(ProductClass_Elements_ProductSubClassLevel1_Elements_ProductSubClassLevel_IdTxt) as ProductClass_Elements_ProductSubClassLevel1_Elements_ProductSubClassLevel_IdTxt, TO_STRING(ProductClass_Elements_ProductSubClassLevel1_Elements_ProductSubClassLevel_Description) as ProductClass_Elements_ProductSubClassLevel1_Elements_ProductSubClassLevel_Description, TO_INT(TO_STRING(ProductSubClassLevel2_IdNbr)) as ProductSubClassLevel2_IdNbr, TO_STRING(ProductSubClassLevel2_IdTxt) as ProductSubClassLevel2_IdTxt, TO_STRING(ProductSubClassLevel2_Description) as ProductSubClassLevel2_Description FROM DataTypeConversion_CQStream p;
+
+CREATE CQ DatatypeConversionCQConcat 
+INSERT INTO DatatypeConversionCQConcat_output 
+SELECT TO_STRING(ProductGroup_IdTxt) +'|-|'+ TO_STRING(ProductGroup_Description) AS CONCAT, 
+TO_INT(TO_STRING(ProductGroup_IdNbr)) as ProductGroup_IdNbr, TO_STRING(ProductGroup_IdTxt) as ProductGroup_IdTxt, TO_STRING(ProductGroup_Description) as ProductGroup_Description, TO_INT(TO_STRING(ProductCategory_IdNbr)) as ProductCategory_IdNbr, TO_STRING(ProductCategory_IdTxt) as ProductCategory_IdTxt, TO_STRING(ProductCategory_Description) as ProductCategory_Description, TO_STRING(RetailSection_IdNbr) as RetailSection_IdNbr, TO_STRING(RetailSection_Description) as RetailSection_Description, TO_STRING(RetailDepartment_IdNbr) as RetailDepartment_IdNbr, TO_STRING(RetailDepartment_Description) as RetailDepartment_Description, TO_INT(TO_STRING(SMICGroup_IdNbr)) as SMICGroup_IdNbr, TO_INT(TO_STRING(MerchandiseGroup_IdNbr)) as MerchandiseGroup_IdNbr, TO_STRING(SizeUOM_Code) as SizeUOM_Code, TO_INT(TO_STRING(ProductClass_Elements_ProductClass_IdNbr)) as ProductClass_Elements_ProductClass_IdNbr, TO_STRING(ProductClass_Elements_ProductClass_IdTxt) as ProductClass_Elements_ProductClass_IdTxt, TO_STRING(ProductClass_Elements_ProductClass_Description) as ProductClass_Elements_ProductClass_Description, TO_INT(TO_STRING(ProductClass_Elements_ProductSubClassLevel1_Elements_ProductSubClassLevel_IdNbr)) as ProductClass_Elements_ProductSubClassLevel1_Elements_ProductSubClassLevel_IdNbr, TO_STRING(ProductClass_Elements_ProductSubClassLevel1_Elements_ProductSubClassLevel_IdTxt) as ProductClass_Elements_ProductSubClassLevel1_Elements_ProductSubClassLevel_IdTxt, TO_STRING(ProductClass_Elements_ProductSubClassLevel1_Elements_ProductSubClassLevel_Description) as ProductClass_Elements_ProductSubClassLevel1_Elements_ProductSubClassLevel_Description, TO_INT(TO_STRING(ProductSubClassLevel2_IdNbr)) as ProductSubClassLevel2_IdNbr, TO_STRING(ProductSubClassLevel2_IdTxt) as ProductSubClassLevel2_IdTxt, TO_STRING(ProductSubClassLevel2_Description) as ProductSubClassLevel2_Description FROM DataTypeConversion_CQStream p;;
+
+CREATE OR REPLACE CQ DatatypeConversionCQCase 
+INSERT INTO DatatypeConversionCQCase_out 
+SELECT CASE WHEN TO_STRING(ProductGroup_Description) ='"LIGHT BULBS  ELECTRICAL"'
+THEN 'light bulb electricals'
+ELSE 'Not Found' END as CASE_Description, 
+TO_INT(TO_STRING(ProductGroup_IdNbr)) as ProductGroup_IdNbr, TO_STRING(ProductGroup_IdTxt) as ProductGroup_IdTxt, TO_STRING(ProductGroup_Description) as ProductGroup_Description, TO_INT(TO_STRING(ProductCategory_IdNbr)) as ProductCategory_IdNbr, TO_STRING(ProductCategory_IdTxt) as ProductCategory_IdTxt, TO_STRING(ProductCategory_Description) as ProductCategory_Description, TO_STRING(RetailSection_IdNbr) as RetailSection_IdNbr, TO_STRING(RetailSection_Description) as RetailSection_Description, TO_STRING(RetailDepartment_IdNbr) as RetailDepartment_IdNbr, TO_STRING(RetailDepartment_Description) as RetailDepartment_Description, TO_INT(TO_STRING(SMICGroup_IdNbr)) as SMICGroup_IdNbr, TO_INT(TO_STRING(MerchandiseGroup_IdNbr)) as MerchandiseGroup_IdNbr, TO_STRING(SizeUOM_Code) as SizeUOM_Code, TO_INT(TO_STRING(ProductClass_Elements_ProductClass_IdNbr)) as ProductClass_Elements_ProductClass_IdNbr, TO_STRING(ProductClass_Elements_ProductClass_IdTxt) as ProductClass_Elements_ProductClass_IdTxt, TO_STRING(ProductClass_Elements_ProductClass_Description) as ProductClass_Elements_ProductClass_Description, TO_INT(TO_STRING(ProductClass_Elements_ProductSubClassLevel1_Elements_ProductSubClassLevel_IdNbr)) as ProductClass_Elements_ProductSubClassLevel1_Elements_ProductSubClassLevel_IdNbr, TO_STRING(ProductClass_Elements_ProductSubClassLevel1_Elements_ProductSubClassLevel_IdTxt) as ProductClass_Elements_ProductSubClassLevel1_Elements_ProductSubClassLevel_IdTxt, TO_STRING(ProductClass_Elements_ProductSubClassLevel1_Elements_ProductSubClassLevel_Description) as ProductClass_Elements_ProductSubClassLevel1_Elements_ProductSubClassLevel_Description, TO_INT(TO_STRING(ProductSubClassLevel2_IdNbr)) as ProductSubClassLevel2_IdNbr, TO_STRING(ProductSubClassLevel2_IdTxt) as ProductSubClassLevel2_IdTxt, TO_STRING(ProductSubClassLevel2_Description) as ProductSubClassLevel2_Description FROM DataTypeConversion_CQStream p;;
+
+CREATE OR REPLACE TARGET MerchandiseHierarchy_AvroWriter USING Global.FileWriter ( 
+  flushpolicy: 'EventCount:10000,Interval:30s', 
+  rolloveronddl: 'true', 
+  encryptionpolicy: '', 
+  adapterName: 'FileWriter', 
+  filename: 'MerchandiseHierarchy.avro', 
+  rolloverpolicy: 'EventCount:10000,Interval:30s' ) 
+FORMAT USING Global.AvroFormatter  ( 
+  formatAs: 'Default', 
+  schemaFileName: 'MerchandiseHierarchy.avsc', 
+  handler: 'com.webaction.proc.AvroFormatter', 
+  formatterName: 'AvroFormatter' ) 
+INPUT FROM DataTypeConversion_CQStream;
+
+CREATE TARGET Merchandise_Hierarchy_Avro_Left_Right USING Global.FileWriter ( 
+  DataEncryptionKeyPassphrase: '', 
+  flushpolicy: 'EventCount:10000,Interval:30s', 
+  rolloveronddl: 'true', 
+  encryptionpolicy: '', 
+  filename: 'MerchandiseLeftRight.avro', 
+  rolloverpolicy: 'EventCount:10000,Interval:30s' ) 
+FORMAT USING Global.AvroFormatter  ( 
+  schemaFileName: 'MerchandiseHierarchy.avsc', 
+  formatAs: 'default' ) 
+INPUT FROM DatatypeConversionLeftRight_out;
+
+CREATE OR REPLACE TARGET Merchandise_Hierarchy_Avro_writers USING Global.FileWriter ( 
+  flushpolicy: 'EventCount:10000,Interval:30s', 
+  rolloveronddl: 'true', 
+  encryptionpolicy: '', 
+  adapterName: 'FileWriter', 
+  filename: 'MerchandiseNewcol.avro', 
+  rolloverpolicy: 'EventCount:10000,Interval:30s' ) 
+FORMAT USING Global.AvroFormatter  ( 
+  formatAs: 'Default', 
+  schemaFileName: 'MerchandiseHierarchy.avsc', 
+  handler: 'com.webaction.proc.AvroFormatter', 
+  formatterName: 'AvroFormatter' ) 
+INPUT FROM DataTypeConversionCQNewColumn_out;
+
+CREATE TARGET Merchandise_Hierarachy_Avro_Concat USING Global.FileWriter ( 
+  filename: 'MerchandiseConcat.avro', 
+  DataEncryptionKeyPassphrase: '', 
+  flushpolicy: 'EventCount:10000,Interval:30s', 
+  rolloveronddl: 'true', 
+  encryptionpolicy: '', 
+  rolloverpolicy: 'EventCount:10000,Interval:30s' ) 
+FORMAT USING Global.AvroFormatter  ( 
+  schemaFileName: 'MerchandiseHierarchy.avsc', 
+  formatAs: 'default' ) 
+INPUT FROM DatatypeConversionCQConcat_output;
+
+CREATE OR REPLACE TARGET Merchandise_Hierarchy_Avro_Case USING Global.FileWriter ( 
+  flushpolicy: 'EventCount:10000,Interval:30s', 
+  rolloveronddl: 'true', 
+  encryptionpolicy: '', 
+  adapterName: 'FileWriter', 
+  filename: 'Merchandise_Hierarchy_Avro_Case.avro', 
+  rolloverpolicy: 'EventCount:10000,Interval:30s' ) 
+FORMAT USING Global.AvroFormatter  ( 
+  formatAs: 'Default', 
+  schemaFileName: 'MerchandiseHierarchy.avsc', 
+  handler: 'com.webaction.proc.AvroFormatter', 
+  formatterName: 'AvroFormatter' ) 
+INPUT FROM DatatypeConversionCQCase_out;
+
+END APPLICATION MERHIER;
+

@@ -1,0 +1,49 @@
+
+CREATE APPLICATION OracleToFile_DDL;
+
+CREATE OR REPLACE SOURCE Oracle_DDL_src USING Global.OracleReader ( 
+  TransactionBufferDiskLocation: '.striim/LargeBuffer', 
+  adapterName: 'OracleReader', 
+  OutboundServerProcessName: 'WebActionXStream', 
+  DatabaseRole: 'PRIMARY', 
+  DDLCaptureMode: 'All', 
+  Compression: false, 
+  ReaderType: 'LogMiner', 
+  connectionRetryPolicy: 'timeOut=30, retryInterval=30, maxRetries=3', 
+  Password_encrypted: 'true', 
+  SupportPDB: false, 
+  QuiesceMarkerTable: 'QUIESCEMARKER', 
+  FetchSize: 1000, 
+  CommittedTransactions: true, 
+  QueueSize: 2048, 
+  XstreamTimeOut: 600, 
+  DictionaryMode: 'OfflineCatalog', 
+  Username: 'striim', 
+  TransactionBufferSpilloverSize: '1MB', 
+  ConnectionURL: 'jdbc:oracle:thin:@localhost:1521/orcl', 
+  TransactionBufferType: 'Memory', 
+  Tables: 'STRIIM.CUSTOMERS_2;', 
+  FilterTransactionBoundaries: true, 
+  SendBeforeImage: true, 
+  Password: 'oQ7AuMLFPz55u3k4kRRHTA==' ) 
+OUTPUT TO Oracle_DDL_out;
+
+CREATE OR REPLACE TARGET File_Src_wrtr USING Global.FileWriter ( 
+  DataEncryptionKeyPassphrase: '', 
+  rolloveronddl: 'true', 
+  encryptionpolicy: '', 
+  flushpolicy: 'EventCount:10,Interval:30s', 
+  rolloverpolicy: 'EventCount:10,Interval:30s', 
+  filename: 'File00' ) 
+FORMAT USING Global.DSVFormatter  ( 
+  quotecharacter: '\"', 
+  columndelimiter: ',', 
+  nullvalue: 'NULL', 
+  usequotes: 'false', 
+  rowdelimiter: '\n', 
+  standard: 'none', 
+  header: 'false' ) 
+INPUT FROM Oracle_DDL_out;
+
+END APPLICATION OracleToFile_DDL;
+

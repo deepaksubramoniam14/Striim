@@ -1,0 +1,55 @@
+
+CREATE APPLICATION ActiveMQ_to_File;
+
+CREATE OR REPLACE SOURCE ActiveMQSrc USING Global.JMSReader ( 
+  Provider: 'tcp://localhost:61616', 
+  crashonunsupportedmessagetype: true, 
+  Topic: 'dynamicTopics/testTopic', 
+  UserName: 'admin', 
+  Ctx: 'org.apache.activemq.jndi.ActiveMQInitialContextFactory', 
+  Password: 'SSv3eoeN8EsT1ObZOon0ewXY0qnjYX63G3djrFxpek8=', 
+  Password_encrypted: 'false', 
+  transactionpolicy: 'messagecount:5,interval:3s', 
+  adapterName: 'JMSReader' ) 
+PARSE USING Global.DSVParser ( 
+  trimwhitespace: false, 
+  linenumber: '-1', 
+  columndelimiter: ',', 
+  columndelimittill: '-1', 
+  trimquote: true, 
+  ignoreemptycolumn: false, 
+  separator: ':', 
+  parserName: 'DSVParser', 
+  quoteset: '\"', 
+  handler: 'com.webaction.proc.DSVParser_1_0', 
+  charset: 'UTF-8', 
+  ignoremultiplerecordbegin: 'true', 
+  ignorerowdelimiterinquote: false, 
+  header: false, 
+  blockascompleterecord: false, 
+  rowdelimiter: '\n', 
+  nocolumndelimiter: false, 
+  headerlineno: 0 ) 
+OUTPUT TO ActiveMQSrcOut;
+
+CREATE OR REPLACE TARGET TgtFile USING Global.FileWriter ( 
+  rolloverpolicy: 'EventCount:1,Interval:3s', 
+  rolloveronddl: 'true', 
+  encryptionpolicy: '', 
+  adapterName: 'FileWriter', 
+  flushpolicy: 'EventCount:1,Interval:3s', 
+  filename: 'ActiveMQFile' ) 
+FORMAT USING Global.DSVFormatter  ( 
+  quotecharacter: '\"', 
+  handler: 'com.webaction.proc.DSVFormatter', 
+  columndelimiter: ',', 
+  formatterName: 'DSVFormatter', 
+  nullvalue: 'NULL', 
+  usequotes: 'false', 
+  rowdelimiter: '\n', 
+  standard: 'none', 
+  header: 'false' ) 
+INPUT FROM ActiveMQSrcOut;
+
+END APPLICATION ActiveMQ_to_File;
+

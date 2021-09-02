@@ -1,0 +1,37 @@
+
+CREATE APPLICATION OracleILToAzureBlobWriter;
+
+CREATE OR REPLACE SOURCE OracletoAzureBlobWriter_Src USING Global.DatabaseReader ( 
+  DatabaseProviderType: 'Default', 
+  Password: 'qk4CEA+DrfVN4RNrN5sjvsbEteGBwe3dVUE1ova5fmw=', 
+  adapterName: 'DatabaseReader', 
+  ConnectionURL: 'jdbc:oracle:thin:@localhost:1521/orcl', 
+  QuiesceOnILCompletion: false, 
+  Password_encrypted: 'true', 
+  Username: 'striim', 
+  Tables: 'STRIIM.MYTABLE,STRIIM.MYTABLE1;STRIIM.MYTABLE2;', 
+  FetchSize: 10 ) 
+OUTPUT TO OracleILtoAzureBlobSrcOp;
+
+CREATE OR REPLACE CQ oracleIltoAzureBlobWriter_CqIP 
+INSERT INTO oracleIltoAzureBlobWriter_CqOP 
+SELECT data[0] as col1,data[1] as col2,data[2] as col3,data[3] as col4,data[4] as col5 FROM OracleILtoAzureBlobSrcOp o where to_string(META(o,'TableName'))=to_string('STRIIM.MYTABLE');;
+
+CREATE CQ CQ2 
+INSERT INTO CQ2_op 
+SELECT data[0] as col1,data[1] as col2,data[2] as col3,data[3] as col4,data[4] as col5 FROM OracleILtoAzureBlobSrcOp o where to_string(META(o,'TableName'))=to_string('STRIIM.MYTABLE');;
+
+CREATE JUMPING WINDOW Window1 OVER oracleIltoAzureBlobWriter_CqOP 
+KEEP 100 ROWS;
+
+CREATE JUMPING WINDOW Window2 OVER CQ2_op 
+KEEP 10 ROWS;
+
+CREATE OR REPLACE CQ Cq3 
+INSERT INTO cq_3_op 
+select a.col1,b.col2 
+from window1 a join window2 b
+where to_int(a.col1) = to_int(b.col1);;
+
+END APPLICATION OracleILToAzureBlobWriter;
+

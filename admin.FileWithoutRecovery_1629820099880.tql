@@ -1,0 +1,35 @@
+
+CREATE APPLICATION FileWithoutRecovery;
+
+CREATE OR REPLACE SOURCE TestFile_src USING Global.FileReader ( 
+  adapterName: 'FileReader', 
+  directory: 'E:/Striim_3.10.3.2/Striim', 
+  rolloverstyle: 'Default', 
+  blocksize: 64, 
+  skipbom: true, 
+  includesubdirectories: false, 
+  positionbyeof: false, 
+  wildcard: 'Filetgt.00.txt' ) 
+PARSE USING Global.DSVParser ( 
+  trimwhitespace: false, 
+  linenumber: '-1', 
+  columndelimiter: ',', 
+  columndelimittill: '-1', 
+  trimquote: true, 
+  ignoreemptycolumn: false, 
+  separator: ':', 
+  parserName: 'DSVParser', 
+  quoteset: '\"', 
+  handler: 'com.webaction.proc.DSVParser_1_0', 
+  charset: 'UTF-8', 
+  ignoremultiplerecordbegin: 'true', 
+  ignorerowdelimiterinquote: false, 
+  header: false, 
+  blockascompleterecord: false, 
+  rowdelimiter: '\n', 
+  nocolumndelimiter: false, 
+  headerlineno: 0 ) 
+OUTPUT TO Test_str;
+
+END APPLICATION FileWithoutRecovery;
+

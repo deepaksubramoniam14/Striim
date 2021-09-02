@@ -1,0 +1,91 @@
+
+CREATE APPLICATION OracleToMSSQL_Bidirectional;
+
+CREATE OR REPLACE SOURCE sqltooraclecdc_bidirectional_src USING Global.MSSqlReader ( 
+  Password: '0i9+i5sVj3tqk9b98B0Z4A==', 
+  FetchTransactionMetadata: false, 
+  Compression: false, 
+  connectionRetryPolicy: 'timeOut=30, retryInterval=30, maxRetries=3', 
+  Password_encrypted: 'true', 
+  TransactionSupport: true, 
+  DatabaseName: 'striim', 
+  adapterName: 'MSSqlReader', 
+  ConnectionPoolSize: 10, 
+  StartPosition: 'EOF', 
+  Fetchsize: 10, 
+  cdcRoleName: 'STRIIM_READER', 
+  Username: 'sa', 
+  FilterTransactionBoundaries: true, 
+  Tables: 'DBO.EMP_CDC;DBO.SQL_MARKER', 
+  BiDirectionalMarkerTable: 'DBO.SQL_MARKER', 
+  SendBeforeImage: true, 
+  AutoDisableTableCDC: false, 
+  ConnectionURL: 'jdbc:sqlserver://localhost:1433;DatabaseName=STRIIM' ) 
+OUTPUT TO sqltooraclecdc_bidirectional_src_OUT;
+
+CREATE OR REPLACE SOURCE OracleToSQLCDC_Bidirectional USING Global.OracleReader ( 
+  ReaderType: 'LogMiner', 
+  Password_encrypted: 'true', 
+  SupportPDB: false, 
+  QuiesceMarkerTable: 'QUIESCEMARKER', 
+  CommittedTransactions: true, 
+  QueueSize: 2048, 
+  TransactionBufferType: 'Memory', 
+  Tables: 'STRIIM.EMP_CDC;STRIIM.ORCL_MARKER', 
+  BiDirectionalMarkerTable: 'STRIIM.ORCL_MARKER', 
+  TransactionBufferDiskLocation: '.striim/LargeBuffer', 
+  adapterName: 'OracleReader', 
+  OutboundServerProcessName: 'WebActionXStream', 
+  DatabaseRole: 'PRIMARY', 
+  DDLCaptureMode: 'All', 
+  Compression: false, 
+  connectionRetryPolicy: 'timeOut=30, retryInterval=30, maxRetries=3', 
+  FetchSize: 5, 
+  XstreamTimeOut: 600, 
+  DictionaryMode: 'OnlineCatalog', 
+  Username: 'striim', 
+  TransactionBufferSpilloverSize: '1MB', 
+  ConnectionURL: 'jdbc:oracle:thin:@localhost:1521/orcl', 
+  FilterTransactionBoundaries: true, 
+  SendBeforeImage: true, 
+  Password: 'oQ7AuMLFPz55u3k4kRRHTA==' ) 
+OUTPUT TO OracleToSQLCDC_BidirectionalO;
+
+CREATE OR REPLACE TARGET orcl_sql_cdc_bidrirectional USING Global.DatabaseWriter ( 
+  ConnectionRetryPolicy: 'retryInterval=30, maxRetries=3', 
+  CheckPointTable: 'CHKPOINT', 
+  Password_encrypted: 'true', 
+  Username: 'striim', 
+  IgnorableExceptionCode: '1', 
+  StatementCacheSize: '50', 
+  DatabaseProviderType: 'Default', 
+  CommitPolicy: 'EventCount:5,Interval:1', 
+  Tables: 'dbo.EMP_CDC,STRIIM.EMP_CDC', 
+  ConnectionURL: 'jdbc:oracle:thin:@localhost:1521/orcl', 
+  BatchPolicy: 'EventCount:5,Interval:1', 
+  PreserveSourceTransactionBoundary: 'false', 
+  BiDirectionalMarkerTable: 'STRIIM.ORCL_MARKER', 
+  Password: 'oQ7AuMLFPz55u3k4kRRHTA==', 
+  adapterName: 'DatabaseWriter' ) 
+INPUT FROM sqltooraclecdc_bidirectional_src_OUT;
+
+CREATE OR REPLACE TARGET SQLDatabaseWriter_Tgt USING Global.DatabaseWriter ( 
+  Password: '0i9+i5sVj3tqk9b98B0Z4A==', 
+  ConnectionRetryPolicy: 'retryInterval=30, maxRetries=3', 
+  Tables: 'STRIIM.EMP_CDC,DBO.EMP_CDC', 
+  CheckPointTable: 'CHKPOINT', 
+  Password_encrypted: 'true', 
+  IgnorableExceptionCode: '1', 
+  StatementCacheSize: '50', 
+  DatabaseProviderType: 'Default', 
+  CommitPolicy: 'EventCount:5,Interval:1', 
+  Username: 'sa', 
+  BatchPolicy: 'EventCount:5,Interval:1', 
+  PreserveSourceTransactionBoundary: 'false', 
+  BiDirectionalMarkerTable: 'DBO.SQL_MARKER', 
+  ConnectionURL: 'jdbc:sqlserver://localhost:1433;DatabaseName=STRIIM', 
+  adapterName: 'DatabaseWriter' ) 
+INPUT FROM OracleToSQLCDC_BidirectionalO;
+
+END APPLICATION OracleToMSSQL_Bidirectional;
+

@@ -1,0 +1,47 @@
+
+CREATE APPLICATION AlbertsonsTestApp;
+
+CREATE OR REPLACE SOURCE MSSQLCDC_Source USING Global.MSSqlReader ( 
+  TransactionSupport: false, 
+  Password: '0i9+i5sVj3tqk9b98B0Z4A==', 
+  FetchTransactionMetadata: false, 
+  Compression: false, 
+  connectionRetryPolicy: 'timeOut=30, retryInterval=30, maxRetries=3', 
+  Password_encrypted: 'false', 
+  ConnectionURL: 'jdbc:sqlserver://localhost:1433;database=striim;', 
+  DatabaseName: 'striim', 
+  Fetchsize: 0, 
+  adapterName: 'MSSqlReader', 
+  ConnectionPoolSize: 10, 
+  StartPosition: 'EOF', 
+  cdcRoleName: 'STRIIM_READER', 
+  Username: 'sa', 
+  FilterTransactionBoundaries: true, 
+  SendBeforeImage: true, 
+  AutoDisableTableCDC: false, 
+  Tables: 'DBO.EMP' ) 
+OUTPUT TO MSSQLCDC_Source_Stream;
+
+CREATE OR REPLACE CQ CaseStatementCQ 
+INSERT INTO CaseStatementCQStream 
+SELECT CASE WHEN TO_STRING(META(s,'OperationName')) = "DELETE" THEN ChangeOperationToInsert(PutUserData(s,'emp_id_n',0,'emp_id_u',"NA",'ISDELETED',1,'CDC_TIMESTAMP', DADD(DNOW(),DHOURS(0)))) WHEN TO_STRING(META(s,'OperationName')) = "INSERT" THEN PutUserData(s,'emp_id_n',data[0],'emp_id_u',"NA",'ISDELETED',0,'CDC_TIMESTAMP', DADD(DNOW(),DHOURS(0))) ELSE PutUserData(s,'emp_id_n',0,'emp_id_u',"y",'ISDELETED',0,'CDC_TIMESTAMP', DADD(DNOW(),DHOURS(0))) END FROM MSSQLCDC_Source_Stream s;
+
+CREATE OR REPLACE TARGET MSSQLTargetAdditionalColumn USING Global.DatabaseWriter ( 
+  Password: '0i9+i5sVj3tqk9b98B0Z4A==', 
+  ConnectionRetryPolicy: 'retryInterval=30, maxRetries=3', 
+  CheckPointTable: 'CHKPOINT', 
+  Password_encrypted: 'false', 
+  ConnectionURL: 'jdbc:sqlserver://localhost:1433;database=striim', 
+  StatementCacheSize: '50', 
+  CommitPolicy: 'EventCount:1,Interval:60', 
+  IgnorableExceptionCode: 'NO_OP_DELETE, NO_OP_UPDATE', 
+  DatabaseProviderType: 'Default', 
+  Username: 'sa', 
+  PreserveSourceTransactionBoundary: 'false', 
+  BatchPolicy: 'EventCount:1,Interval:60', 
+  Tables: 'dbo.emp,dbo.emp_target ColumnMap(emp_id_n=@USERDATA(emp_id_n),emp_id_u=@USERDATA(emp_id_u),ISDELETED=@USERDATA(ISDELETED),CDC_TIMESTAMP=@USERDATA(CDC_TIMESTAMP))', 
+  adapterName: 'DatabaseWriter' ) 
+INPUT FROM CaseStatementCQStream;
+
+END APPLICATION AlbertsonsTestApp;
+

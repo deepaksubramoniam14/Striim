@@ -1,0 +1,56 @@
+
+CREATE APPLICATION IL_MSSQLToSnowFlake;
+
+CREATE OR REPLACE SOURCE IL_MSSQL_SNOWFLAKE_SRC_IP USING Global.DatabaseReader ( 
+  Password: '0i9+i5sVj3tqk9b98B0Z4A==', 
+  DatabaseProviderType: 'Default', 
+  Tables: 'STRIIM.DBO.EMP', 
+  adapterName: 'DatabaseReader', 
+  Username: 'sa', 
+  QuiesceOnILCompletion: false, 
+  Password_encrypted: 'false', 
+  ConnectionURL: 'jdbc:sqlserver://localhost:1433;DatabaseName=striim', 
+  FetchSize: 10 ) 
+OUTPUT TO IL_MSSQL_SNOWFLAKE_SRC_OP;
+
+CREATE OR REPLACE CQ IL_MSSQL_SNOWFLAKE_CQ 
+INSERT INTO IL_MSSQL_SnoFlake_CQ1_out 
+SELECT data[0] as EMP_ID, data[1] as EMP_NAME,data[2] as EMP_CITY FROM IL_MSSQL_SNOWFLAKE_SRC_OP i;
+
+CREATE OR REPLACE TARGET sqldb USING Global.DatabaseWriter ( 
+  ParallelThreads: '3', 
+  Password: '0i9+i5sVj3tqk9b98B0Z4A==', 
+  ConnectionRetryPolicy: 'retryInterval=30, maxRetries=3', 
+  Tables: 'DBO.EMP,DBO.EMP1', 
+  CheckPointTable: 'CHKPOINT', 
+  Password_encrypted: 'false', 
+  ConnectionURL: 'jdbc:sqlserver://localhost:1433;DatabaseName=striim', 
+  StatementCacheSize: '50', 
+  DatabaseProviderType: 'Default', 
+  Username: 'sa', 
+  BatchPolicy: 'EventCount:1000,Interval:60', 
+  PreserveSourceTransactionBoundary: 'false', 
+  CommitPolicy: 'EventCount:5,Interval:60', 
+  adapterName: 'DatabaseWriter' ) 
+INPUT FROM IL_MSSQL_SnoFlake_CQ1_out;
+
+CREATE OR REPLACE TARGET tsnowflake USING Global.SnowflakeWriter ( 
+  password_encrypted: 'false', 
+  azureContainerName: 'striim-snowflake-container', 
+  optimizedMerge: 'false', 
+  columnDelimiter: '|', 
+  s3Region: 'us-west-1', 
+  uploadPolicy: 'eventcount:5,interval:5s', 
+  tables: 'STRIIM.STRIIM.EMP;', 
+  appendOnly: 'false', 
+  password: 'xeolis5XND+NaPLzUmOmfQ==', 
+  externalStageType: 'Local', 
+  adapterName: 'SnowflakeWriter', 
+  connectionUrl: 'jdbc:snowflake://xza51554.snowflakecomputing.com/?db=STRIIM&schema=STRIIM', 
+  fileFormatOptions: 'null_if = \"\"', 
+  username: 'STRIIMGCP10', 
+  s3BucketName: 'striim-snowflake-bucket' ) 
+INPUT FROM IL_MSSQL_SnoFlake_CQ1_out;
+
+END APPLICATION IL_MSSQLToSnowFlake;
+

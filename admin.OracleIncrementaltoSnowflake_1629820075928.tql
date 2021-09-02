@@ -1,0 +1,42 @@
+
+CREATE APPLICATION OracleIncrementaltoSnowflake;
+
+CREATE OR REPLACE SOURCE IncOraSrc USING Global.IncrementalBatchReader ( 
+  Tables: 'STRIIM.EMP', 
+  DatabaseProviderType: 'Default', 
+  pollingInterval: '120sec', 
+  adapterName: 'IncrementalBatchReader', 
+  ConnectionURL: 'jdbc:oracle:thin:@localhost:1521/orcl', 
+  FetchSize: 1, 
+  ReturnDateTimeAs: 'JODA', 
+  CheckColumn: 'STRIIM.EMP=EMP_ID;', 
+  Password_encrypted: 'true', 
+  StartPosition: 'STRIIM.EMP=10', 
+  Username: 'striim', 
+  Password: 'oQ7AuMLFPz55u3k4kRRHTA==' ) 
+OUTPUT TO IncOraSrcOut;
+
+CREATE CQ IncOrasrcCq 
+INSERT INTO IncOrasrcCqOut 
+SELECT data[0] as EMP_ID,data[1] as EMP_NAME, data[2] as EMP_CITY FROM IncOraSrcOut i;;
+
+CREATE OR REPLACE TARGET incoratosfsrc USING Global.SnowflakeWriter ( 
+  password_encrypted: 'true', 
+  azureContainerName: 'striim-snowflake-container', 
+  optimizedMerge: 'false', 
+  columnDelimiter: '|', 
+  connectionUrl: 'jdbc:snowflake://yy66876.us-central1.gcp.snowflakecomputing.com/?db=STRIIM&schema=dbo', 
+  s3Region: 'us-west-1', 
+  uploadPolicy: 'eventcount:1,interval:1m', 
+  tables: 'STRIIM.STRIIM.EMP;', 
+  appendOnly: 'false', 
+  password: 'xeolis5XND+NaPLzUmOmfQ==', 
+  externalStageType: 'Local', 
+  adapterName: 'SnowflakeWriter', 
+  fileFormatOptions: 'null_if = \"\"', 
+  username: 'STRIIMGCP10', 
+  s3BucketName: 'striim-snowflake-bucket' ) 
+INPUT FROM IncOrasrcCqOut;
+
+END APPLICATION OracleIncrementaltoSnowflake;
+

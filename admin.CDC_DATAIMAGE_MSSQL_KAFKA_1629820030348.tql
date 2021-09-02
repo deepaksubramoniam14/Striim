@@ -1,0 +1,66 @@
+
+CREATE APPLICATION CDC_DATAIMAGE_MSSQL_KAFKA;
+
+CREATE OR REPLACE SOURCE MSSQL_KAFKA_IMAGE_SRC USING Global.MSSqlReader ( 
+  TransactionSupport: false, 
+  Password: '0i9+i5sVj3tqk9b98B0Z4A==', 
+  FetchTransactionMetadata: false, 
+  Compression: false, 
+  connectionRetryPolicy: 'timeOut=30, retryInterval=30, maxRetries=3', 
+  Password_encrypted: 'false', 
+  StartPosition: 'LSN:0x000000700000277800CB', 
+  ConnectionURL: 'jdbc:sqlserver://localhost:1433;DatabaseName=striim', 
+  DatabaseName: 'striim', 
+  Fetchsize: 1, 
+  adapterName: 'MSSqlReader', 
+  ConnectionPoolSize: 10, 
+  cdcRoleName: 'STRIIM_READER', 
+  Username: 'sa', 
+  FilterTransactionBoundaries: true, 
+  SendBeforeImage: true, 
+  AutoDisableTableCDC: false, 
+  Tables: 'DBO.EMP' ) 
+OUTPUT TO MSSQL_KAFKA_IMAGE_SRC_OP;
+
+CREATE OR REPLACE CQ CQ_IMAGE_FORMATTER 
+INSERT INTO CQ_IMAGE_FORMATTER_OP 
+SELECT data(m) as actualdata, before(m) as beforedata, meta(m,"TableName").toString() as Tablename, meta(m,"OperationName").toString() as OperationName, meta(m,"Timestamp") as servertime FROM MSSQL_KAFKA_IMAGE_SRC_OP m;
+
+CREATE TARGET DSV_IMAGE_KAFKA USING Global.KafkaWriter VERSION '0.11.0'( 
+  brokerAddress: 'localhost:9092', 
+  KafkaConfigValueSeparator: '=', 
+  MessageKey: '', 
+  Topic: 'DSV_IMAGE_KAFKA', 
+  MessageHeader: '', 
+  KafkaConfigPropertySeparator: ';', 
+  ParallelThreads: '', 
+  Mode: 'Sync', 
+  KafkaConfig: 'request.timeout.ms=60001;session.timeout.ms=60000' ) 
+FORMAT USING Global.DSVFormatter  ( 
+  quotecharacter: '\"', 
+  columndelimiter: ',', 
+  nullvalue: 'NULL', 
+  usequotes: 'false', 
+  rowdelimiter: '\n', 
+  standard: 'none', 
+  header: 'false' ) 
+INPUT FROM CQ_IMAGE_FORMATTER_OP;
+
+CREATE TARGET JSON_IMAGE_KAFKA USING Global.KafkaWriter VERSION '0.11.0'( 
+  brokerAddress: 'localhost:9092', 
+  Topic: 'JSON_IMAGE_KAFKA', 
+  KafkaConfigValueSeparator: '=', 
+  MessageKey: '', 
+  MessageHeader: '', 
+  KafkaConfigPropertySeparator: ';', 
+  ParallelThreads: '', 
+  Mode: 'Sync', 
+  KafkaConfig: 'request.timeout.ms=60001;session.timeout.ms=60000' ) 
+FORMAT USING Global.JSONFormatter  ( 
+  jsonMemberDelimiter: '\n', 
+  EventsAsArrayOfJsonObjects: 'true', 
+  jsonobjectdelimiter: '\n' ) 
+INPUT FROM CQ_IMAGE_FORMATTER_OP;
+
+END APPLICATION CDC_DATAIMAGE_MSSQL_KAFKA;
+

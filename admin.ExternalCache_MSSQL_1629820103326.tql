@@ -1,0 +1,139 @@
+
+CREATE APPLICATION ExternalCache_MSSQL;
+
+CREATE OR REPLACE TYPE emp_city (
+ EMP_ID java.lang.Integer KEY,
+ CITY_NAME java.lang.String,
+ TRANSACTION_ID java.lang.Integer);
+
+CREATE TYPE EXTERNAL_DEPT (
+ DEPT_ID java.lang.Integer KEY,
+ DEPT_NAME java.lang.String,
+ REMARKS java.lang.String);
+
+CREATE OR REPLACE SOURCE CDCSRC USING Global.MSSqlReader ( 
+  TransactionSupport: false, 
+  Password: '0i9+i5sVj3tqk9b98B0Z4A==', 
+  Tables: 'DBO.EMPLOYEE', 
+  FetchTransactionMetadata: false, 
+  Compression: false, 
+  DatabaseName: 'Striim', 
+  connectionRetryPolicy: 'timeOut=30, retryInterval=30, maxRetries=3', 
+  Password_encrypted: 'false', 
+  ConnectionURL: 'jdbc:sqlserver://localhost:1433;DatabaseName=striim', 
+  Fetchsize: 0, 
+  adapterName: 'MSSqlReader', 
+  ConnectionPoolSize: 10, 
+  StartPosition: 'EOF', 
+  cdcRoleName: 'STRIIM_READER', 
+  Username: 'sa', 
+  FilterTransactionBoundaries: true, 
+  SendBeforeImage: true, 
+  AutoDisableTableCDC: false ) 
+OUTPUT TO CDCSRC_OUT;
+
+CREATE TYPE EXTERNAL_LOC (
+ LOC_ID java.lang.Integer KEY,
+ LOC_NAME java.lang.String);
+
+CREATE TYPE dept_ext (
+ EMP_ID java.lang.Integer,
+ DEPT_ID java.lang.Integer KEY,
+ DEPT_NAME java.lang.String);
+
+CREATE OR REPLACE TYPE eventtabletesting (
+ EMP_ID java.lang.Integer KEY,
+ CITY_NAME java.lang.String,
+ TRANSACTION_ID java.lang.Integer);
+
+CREATE TYPE eventtabletest (
+ EMP_ID java.lang.Integer KEY,
+ CITY_NAME java.lang.String,
+ TRANSACTION_ID java.lang.Integer);
+
+CREATE TYPE EMPCITY (
+ CITYID java.lang.Integer KEY,
+ CITYNAME java.lang.String);
+
+CREATE OR REPLACE TYPE CDC_CQ1_op_Type (
+ emp_id java.lang.Integer,
+ emp_name java.lang.String,
+ emp_city java.lang.String);
+
+CREATE EXTERNAL CACHE EXTERNAL_DEPARTMENT ( 
+  Password: '0i9+i5sVj3tqk9b98B0Z4A==', 
+  DatabaseProviderType: 'Default', 
+  FetchSize: 100, 
+  Username: 'sa', 
+  AdapterName: 'DatabaseReader', 
+  connectionRetryPolicy: 'timeOut=30, retryInterval=30, maxRetries=3', 
+  SkipInvalid: false, 
+  Password_encrypted: 'false', 
+  ConnectionURL: 'jdbc:sqlserver://LOCALHOST:1433;DatabaseName=STRIIM', 
+  Table: 'DBO.DEPARTMENT_MASTER', 
+  KeyToMap: 'DEPT_ID', 
+  Columns: 'DEPT_ID,DEPT_NAME,REMARKS' ) 
+OF EXTERNAL_DEPT;
+
+CREATE EXTERNAL CACHE EXTERNAL_LOCATION ( 
+  Password: '0i9+i5sVj3tqk9b98B0Z4A==', 
+  KeyToMap: 'LOC_ID', 
+  DatabaseProviderType: 'Default', 
+  FetchSize: 100, 
+  Columns: 'LOC_ID,LOC_NAME', 
+  AdapterName: 'DatabaseReader', 
+  connectionRetryPolicy: 'timeOut=30, retryInterval=30, maxRetries=3', 
+  SkipInvalid: false, 
+  Password_encrypted: 'false', 
+  ConnectionURL: 'jdbc:sqlserver://LOCALHOST:1433;DatabaseName=STRIIM', 
+  Username: 'SA', 
+  Table: 'DBO.LOCATION_MASTER' ) 
+OF EXTERNAL_LOC;
+
+CREATE OR REPLACE CQ EMP_DEPT_CQ 
+INSERT INTO EMP_DEPT_CQ_OUT 
+SELECT 
+TO_INT(C.DATA[0]) AS EMPLOYEE_ID,
+TO_STRING(C.DATA[1]) AS EMPLOYEE_NAME,
+TO_INT(C.DATA[2]) AS DEPT_ID,
+E.DEPT_NAME AS DEPARTMENT_NAME,
+TO_DATE(C.DATA[3]) AS DOJ,
+TO_INT(C.DATA[4]) AS SALARY,
+TO_INT(C.DATA[5]) AS LOC_ID
+FROM CDCSRC_OUT C,EXTERNAL_DEPARTMENT E
+WHERE TO_INT(C.DATA[2])=TO_INT(DEPT_ID);;
+
+CREATE OR REPLACE CQ EMP_LOC_CQ 
+INSERT INTO EMP_LOC_CQ_OP 
+SELECT 
+C.EMPLOYEE_ID AS EMPLOYEE_ID,
+C.EMPLOYEE_NAME AS EMPLOYEE_NAME,
+C.DEPT_ID AS DEPARTMENT_ID,
+C.DEPARTMENT_NAME AS DEPARTMENT_NAME,
+C.DOJ AS DATE_OF_JOINING,
+C.SALARY AS SALARY,
+C.LOC_ID AS LOCATION_ID,
+E.LOC_NAME AS LOCATION_NAME
+FROM EMP_DEPT_CQ_OUT C,EXTERNAL_LOCATION E
+WHERE TO_INT(C.LOC_ID)=TO_INT(E.LOC_ID);;
+
+CREATE TARGET EMP_FILE USING Global.FileWriter ( 
+  DataEncryptionKeyPassphrase: '', 
+  directory: 'E:/STRIIM_3.10.3.2/STRIIM/', 
+  rolloveronddl: 'true', 
+  encryptionpolicy: '', 
+  rolloverpolicy: 'EventCount:1,Interval:30s', 
+  flushpolicy: 'EventCount:1,Interval:30s', 
+  filename: 'EMPLOYEE_FILE' ) 
+FORMAT USING Global.DSVFormatter  ( 
+  quotecharacter: '\"', 
+  columndelimiter: ',', 
+  nullvalue: 'NULL', 
+  usequotes: 'false', 
+  rowdelimiter: '\n', 
+  standard: 'none', 
+  header: 'false' ) 
+INPUT FROM EMP_LOC_CQ_OP;
+
+END APPLICATION ExternalCache_MSSQL;
+

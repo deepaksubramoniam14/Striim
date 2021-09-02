@@ -1,0 +1,40 @@
+
+CREATE APPLICATION OracleILToSnowFlake;
+
+CREATE OR REPLACE SOURCE OracleILSrc USING Global.DatabaseReader ( 
+  ConnectionURL: 'jdbc:oracle:thin:@localhost:1521/ORCL', 
+  DatabaseProviderType: 'Default', 
+  QuiesceOnILCompletion: true, 
+  adapterName: 'DatabaseReader', 
+  Password_encrypted: 'true', 
+  Username: 'STRIIM', 
+  Tables: 'STRIIM.EMP;', 
+  FetchSize: 5, 
+  Password: 'oQ7AuMLFPz55u3k4kRRHTA==' ) 
+OUTPUT TO OracleILSrcOut;
+
+CREATE OR REPLACE CQ OracleSFCQ 
+INSERT INTO Oracle_ILSF_Out1 
+SELECT data[0] as EMP_ID,data[1] as EMP_NAME, data[2] as EMP_CITY FROM OracleILSrcOut o;
+
+CREATE OR REPLACE TARGET OracleILSF_IP USING Global.SnowflakeWriter ( 
+  password_encrypted: 'true', 
+  azureContainerName: 'striim-snowflake-container', 
+  optimizedMerge: 'false', 
+  columnDelimiter: '|', 
+  IgnorableExceptionCode: 'TABLE_NOT_FOUND', 
+  s3Region: 'us-west-1', 
+  tables: 'STRIIM.STRIIM.EMP;', 
+  appendOnly: 'false', 
+  connectionUrl: 'jdbc:snowflake://iu08799.us-central1.gcp.snowflakecomputing.com/?db=STRIIM&schema=STRIIM', 
+  password: 'xeolis5XND+NaPLzUmOmfQ==', 
+  externalStageType: 'Local', 
+  uploadPolicy: 'eventcount:10,interval:5s', 
+  adapterName: 'SnowflakeWriter', 
+  fileFormatOptions: 'null_if = \"\"', 
+  username: 'STRIIMGCP10', 
+  s3BucketName: 'striim-snowflake-bucket' ) 
+INPUT FROM Oracle_ILSF_Out1;
+
+END APPLICATION OracleILToSnowFlake;
+

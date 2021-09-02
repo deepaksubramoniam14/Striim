@@ -1,0 +1,53 @@
+
+CREATE APPLICATION CDCSTRIIMKAFKAMESSAGEKEY;
+
+CREATE OR REPLACE SOURCE CDCMSSQL_MK_SRC USING Global.MSSqlReader ( 
+  TransactionSupport: false, 
+  Password: '0i9+i5sVj3tqk9b98B0Z4A==', 
+  FetchTransactionMetadata: false, 
+  Compression: false, 
+  connectionRetryPolicy: 'timeOut=30, retryInterval=30, maxRetries=3', 
+  Password_encrypted: 'false', 
+  Tables: 'DBO.EMP;DBO.MYTABLE', 
+  ConnectionURL: 'jdbc:sqlserver://localhost:1433;DatabaseName=striim', 
+  DatabaseName: 'striim', 
+  Fetchsize: 1, 
+  adapterName: 'MSSqlReader', 
+  ConnectionPoolSize: 10, 
+  StartPosition: 'LSN:0x00000025000005600003', 
+  cdcRoleName: 'STRIIM_READER', 
+  Username: 'sa', 
+  FilterTransactionBoundaries: true, 
+  SendBeforeImage: true, 
+  AutoDisableTableCDC: false ) 
+OUTPUT TO CDCMSSQL_MK_SRC_OP;
+
+CREATE OR REPLACE CQ CQ_MK 
+INSERT INTO CQ_MK_OP 
+SELECT c FROM CDCMSSQL_MK_SRC_OP c;
+
+CREATE OR REPLACE TARGET MK_KAFKA_TGT USING Global.KafkaWriter VERSION '0.11.0'( 
+  brokerAddress: 'localhost:9092', 
+  KafkaConfigValueSeparator: '=', 
+  MessageKey: '', 
+  PartitionKey: '\"@METADATA(TableName)\"', 
+  adapterName: 'KafkaWriter', 
+  MessageHeader: '', 
+  Topic: 'CDCKAFKA', 
+  KafkaConfigPropertySeparator: ';', 
+  Mode: 'async', 
+  KafkaConfig: 'request.timeout.ms=60001;session.timeout.ms=60000' ) 
+FORMAT USING Global.DSVFormatter  ( 
+  quotecharacter: '\"', 
+  handler: 'com.webaction.proc.DSVFormatter', 
+  columndelimiter: ',', 
+  formatterName: 'DSVFormatter', 
+  nullvalue: 'NULL', 
+  usequotes: 'false', 
+  rowdelimiter: '\n', 
+  standard: 'none', 
+  header: 'false' ) 
+INPUT FROM CQ_MK_OP;
+
+END APPLICATION CDCSTRIIMKAFKAMESSAGEKEY;
+

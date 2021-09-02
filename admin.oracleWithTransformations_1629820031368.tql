@@ -1,0 +1,37 @@
+
+CREATE APPLICATION oracleWithTransformations EXCEPTIONHANDLER (AdapterException: 'STOP', ArithmeticException: 'STOP', ClassCastException: 'STOP', ConnectionException: 'STOP', InvalidDataException: 'STOP', NullPointerException: 'STOP', NumberFormatException: 'STOP', SystemException: 'IGNORE', UnExpectedDDLException: 'IGNORE', UnknownException: 'IGNORE')  USE EXCEPTIONSTORE TTL : '7d' ;
+
+CREATE OR REPLACE TYPE enrichedRepStream_Type (
+ repid java.lang.String,
+ repname java.lang.String);
+
+CREATE OR REPLACE SOURCE testOracle USING Global.OracleReader ( 
+  ReaderType: 'LogMiner', 
+  Password_encrypted: 'true', 
+  SupportPDB: false, 
+  QuiesceMarkerTable: 'QUIESCEMARKER', 
+  QueueSize: 2048, 
+  FilterTransactionBoundaries: false, 
+  TransactionBufferType: 'Memory', 
+  ConnectionURL: 'localhost:1521:XE', 
+  Password: '4s6ZHpGjoKHmjy6Y2kYiVugxtdaKUeD40Cs5Zgh3vBw=', 
+  TransactionBufferDiskLocation: '.striim/LargeBuffer', 
+  adapterName: 'OracleReader', 
+  OutboundServerProcessName: 'WebActionXStream', 
+  DDLCaptureMode: 'All', 
+  Compression: false, 
+  Username: 'miner', 
+  FetchSize: 1, 
+  Tables: 'QATEST.ORDERS', 
+  connectionRetryPolicy: 'timeOut=30, retryInterval=30, maxRetries=3', 
+  XstreamTimeOut: 600, 
+  DictionaryMode: 'OnlineCatalog', 
+  TransactionBufferSpilloverSize: '1MB', 
+  CommittedTransactions: false, 
+  StartTimestamp: 'null', 
+  StartSCN: 'null', 
+  SendBeforeImage: true ) 
+OUTPUT TO orastream;
+
+END APPLICATION oracleWithTransformations;
+
