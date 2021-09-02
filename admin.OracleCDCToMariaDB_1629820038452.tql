@@ -1,0 +1,33 @@
+
+CREATE APPLICATION OracleCDCToMariaDB;
+
+CREATE OR REPLACE SOURCE OraclecdcMariadbSrc USING Global.OracleReader ( 
+  ReaderType: 'LogMiner', 
+  Password_encrypted: 'false', 
+  SupportPDB: false, 
+  QuiesceMarkerTable: 'QUIESCEMARKER', 
+  FetchSize: 25, 
+  CommittedTransactions: true, 
+  QueueSize: 2048, 
+  TransactionBufferType: 'Memory', 
+  StartSCN: '5895905', 
+  TransactionBufferDiskLocation: '.striim/LargeBuffer', 
+  adapterName: 'OracleReader', 
+  OutboundServerProcessName: 'WebActionXStream', 
+  DatabaseRole: 'PRIMARY', 
+  DDLCaptureMode: 'All', 
+  Compression: false, 
+  connectionRetryPolicy: 'timeOut=30, retryInterval=30, maxRetries=3', 
+  XstreamTimeOut: 600, 
+  DictionaryMode: 'OnlineCatalog', 
+  Username: 'striim', 
+  TransactionBufferSpilloverSize: '1MB', 
+  Tables: 'STRIIM.EMP', 
+  ConnectionURL: 'jdbc:oracle:thin:@localhost:1521/orcl', 
+  FilterTransactionBoundaries: true, 
+  SendBeforeImage: true, 
+  Password: 'oQ7AuMLFPz55u3k4kRRHTA==' ) 
+OUTPUT TO OraclecdcMariadbSrc_out;
+
+END APPLICATION OracleCDCToMariaDB;
+

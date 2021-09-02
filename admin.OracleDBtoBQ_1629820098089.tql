@@ -1,0 +1,39 @@
+
+
+CREATE APPLICATION OracleDBtoBQ;
+
+CREATE OR REPLACE SOURCE SrcDBIp USING Global.DatabaseReader ( 
+  DatabaseProviderType: 'Default', 
+  FetchSize: 50, 
+  QuiesceOnILCompletion: true, 
+  adapterName: 'DatabaseReader', 
+  ConnectionURL: 'jdbc:oracle:thin:@localhost:1521/orcl', 
+  Password_encrypted: 'false', 
+  Tables: 'STRIIM.EMP;', 
+  Username: 'striim', 
+  Password: 'oQ7AuMLFPz55u3k4kRRHTA==' ) 
+OUTPUT TO tgtdboporabq;
+
+CREATE OR REPLACE TARGET tgtBQip USING Global.BigQueryWriter ( 
+  ColumnDelimiter: '|', 
+  NullMarker: 'NULL', 
+  streamingUpload: 'false', 
+  Tables: 'STRIIM.EMP,Striim.EMP;', 
+  Encoding: 'UTF-8', 
+  ParallelThreads: '2', 
+  AllowQuotedNewLines: 'false', 
+  optimizedMerge: 'false', 
+  ServiceAccountKey: 'E:/Striim_3.10.3.2/Striim/striim-305719-6bb4f00a46eb.json', 
+  projectId: 'striim-305719', 
+  adapterName: 'BigQueryWriter', 
+  Mode: 'APPENDONLY', 
+  ConnectionRetryPolicy: 'totalTimeout=60, initialRetryDelay=10, retryDelayMultiplier=2.0, maxRetryDelay=60 , maxAttempts=5, jittered=True, initialRpcTimeout=10, rpcTimeoutMultiplier=2.0, maxRpcTimeout=30', 
+  TransportOptions: 'connectionTimeout=30, readTimeout=60', 
+  StandardSQL: 'true', 
+  includeInsertId: 'true', 
+  QuoteCharacter: '\"', 
+  BatchPolicy: 'eventCount:25, Interval:6' ) 
+INPUT FROM tgtdboporabq;
+
+END APPLICATION OracleDBtoBQ;
+

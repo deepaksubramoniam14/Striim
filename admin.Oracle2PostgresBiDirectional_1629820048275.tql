@@ -1,0 +1,82 @@
+
+CREATE APPLICATION Oracle2PostgresBiDirectional;
+
+CREATE OR REPLACE SOURCE AuroraPostgresCDCSource USING Global.PostgreSQLReader ( 
+  adapterName: 'PostgreSQLReader', 
+  ConnectionRetryPolicy: 'retryInterval=30, maxRetries=3', 
+  Tables: 'public.EMP_CDC', 
+  Username: 'waction', 
+  Password: '1lPiQKqbjP3gB78bIAkPwA==', 
+  Password_encrypted: 'false', 
+  BiDirectionalMarkerTable: 'public.bi_directional', 
+  ReplicationSlotName: 'test_slot', 
+  FilterTransactionBoundaries: true, 
+  ConnectionURL: 'jdbc:postgresql://localhost:5432/webaction' ) 
+OUTPUT TO Change_Data_Stream_DB_2;
+
+CREATE OR REPLACE SOURCE OracleCDCsource USING Global.OracleReader ( 
+  ReaderType: 'LogMiner', 
+  Password_encrypted: 'false', 
+  SupportPDB: false, 
+  QuiesceMarkerTable: 'QUIESCEMARKER', 
+  CommittedTransactions: true, 
+  QueueSize: 2048, 
+  TransactionBufferType: 'Memory', 
+  TransactionBufferDiskLocation: '.striim/LargeBuffer', 
+  Tables: 'STRIIM.EMP_CDC', 
+  BiDirectionalMarkerTable: 'STRIIM.EMP_CDC', 
+  adapterName: 'OracleReader', 
+  OutboundServerProcessName: 'WebActionXStream', 
+  DatabaseRole: 'PRIMARY', 
+  StartSCN: '6454059', 
+  DDLCaptureMode: 'All', 
+  Compression: false, 
+  FetchSize: 1, 
+  connectionRetryPolicy: 'timeOut=30, retryInterval=30, maxRetries=3', 
+  XstreamTimeOut: 600, 
+  DictionaryMode: 'OnlineCatalog', 
+  Username: 'striim', 
+  TransactionBufferSpilloverSize: '1MB', 
+  ConnectionURL: 'jdbc:oracle:thin:@localhost:1521/orcl', 
+  StartTimestamp: 'null', 
+  FilterTransactionBoundaries: true, 
+  SendBeforeImage: true, 
+  Password: 'oQ7AuMLFPz55u3k4kRRHTA==' ) 
+OUTPUT TO Change_Data_Stream_DB_1;
+
+CREATE OR REPLACE TARGET OracleTarget USING Global.DatabaseWriter ( 
+  ConnectionRetryPolicy: 'retryInterval=30, maxRetries=3', 
+  BiDirectionalMarkerTable: 'STRIIM.BI_DIRECTIONAL', 
+  CheckPointTable: 'CHKPOINT', 
+  Password_encrypted: 'false', 
+  Tables: 'PUBLIC.EMP_CDC,STRIIM.EMP_CDC', 
+  Username: 'striim', 
+  StatementCacheSize: '50', 
+  DatabaseProviderType: 'Default', 
+  CommitPolicy: 'EventCount:1,Interval:6', 
+  ConnectionURL: 'jdbc:oracle:thin:@localhost:1521/orcl', 
+  PreserveSourceTransactionBoundary: 'false', 
+  BatchPolicy: 'EventCount:1,Interval:6', 
+  Password: 'oQ7AuMLFPz55u3k4kRRHTA==', 
+  adapterName: 'DatabaseWriter' ) 
+INPUT FROM Change_Data_Stream_DB_2;
+
+CREATE OR REPLACE TARGET AuroraPostgresTarget USING Global.DatabaseWriter ( 
+  ConnectionRetryPolicy: 'retryInterval=30, maxRetries=3', 
+  CheckPointTable: 'CHKPOINT', 
+  Password_encrypted: 'false', 
+  ConnectionURL: 'jdbc:postgresql://localhost:5432/webaction', 
+  StatementCacheSize: '50', 
+  CommitPolicy: 'EventCount:1,Interval:60', 
+  DatabaseProviderType: 'Default', 
+  Username: 'waction', 
+  Password: '1lPiQKqbjP3gB78bIAkPwA==', 
+  PreserveSourceTransactionBoundary: 'false', 
+  BatchPolicy: 'EventCount:1,Interval:60', 
+  BiDirectionalMarkerTable: 'public.bi_directional', 
+  Tables: 'STRIIM.EMP_CDC,PUBLIC.EMP_CDC', 
+  adapterName: 'DatabaseWriter' ) 
+INPUT FROM Change_Data_Stream_DB_1;
+
+END APPLICATION Oracle2PostgresBiDirectional;
+

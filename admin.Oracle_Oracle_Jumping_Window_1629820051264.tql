@@ -1,0 +1,111 @@
+
+CREATE APPLICATION Oracle_Oracle_Jumping_Window;
+
+CREATE OR REPLACE SOURCE Baggage_details USING Global.OracleReader ( 
+  TransactionBufferDiskLocation: '.striim/LargeBuffer', 
+  adapterName: 'OracleReader', 
+  OutboundServerProcessName: 'WebActionXStream', 
+  DatabaseRole: 'PRIMARY', 
+  DDLCaptureMode: 'All', 
+  Compression: false, 
+  ReaderType: 'LogMiner', 
+  connectionRetryPolicy: 'timeOut=30, retryInterval=30, maxRetries=3', 
+  Password_encrypted: 'false', 
+  SupportPDB: false, 
+  QuiesceMarkerTable: 'QUIESCEMARKER', 
+  CommittedTransactions: true, 
+  QueueSize: 2048, 
+  XstreamTimeOut: 600, 
+  DictionaryMode: 'OnlineCatalog', 
+  Username: 'striim', 
+  FetchSize: 10, 
+  TransactionBufferSpilloverSize: '1MB', 
+  Tables: 'STRIIM.baggage_details', 
+  ConnectionURL: 'jdbc:oracle:thin:@localhost:1521/orcl', 
+  TransactionBufferType: 'Memory', 
+  FilterTransactionBoundaries: true, 
+  SendBeforeImage: true, 
+  Password: 'oQ7AuMLFPz55u3k4kRRHTA==' ) 
+OUTPUT TO from_Baggage_details;
+
+CREATE OR REPLACE TYPE from_cq_baggage_details_Type (
+ passenger_name java.lang.String,
+ Ticket_no java.lang.Integer KEY,
+ baggage_id java.lang.Integer,
+ baggage_weight java.lang.Float);
+
+CREATE OR REPLACE TYPE from_cq_confirmed_passenger_data_Type (
+ passenger_name java.lang.String,
+ Seat_number java.lang.Integer,
+ Ticket_no java.lang.Integer KEY,
+ ticket_status java.lang.String);
+
+CREATE OR REPLACE SOURCE confirmed_passengers_input USING Global.OracleReader ( 
+  TransactionBufferDiskLocation: '.striim/LargeBuffer', 
+  adapterName: 'OracleReader', 
+  OutboundServerProcessName: 'WebActionXStream', 
+  DatabaseRole: 'PRIMARY', 
+  DDLCaptureMode: 'All', 
+  Compression: false, 
+  ReaderType: 'LogMiner', 
+  connectionRetryPolicy: 'timeOut=30, retryInterval=30, maxRetries=3', 
+  Password_encrypted: 'false', 
+  SupportPDB: false, 
+  QuiesceMarkerTable: 'QUIESCEMARKER', 
+  CommittedTransactions: true, 
+  QueueSize: 2048, 
+  XstreamTimeOut: 600, 
+  DictionaryMode: 'OnlineCatalog', 
+  Username: 'striim', 
+  FetchSize: 10, 
+  Tables: 'STRIIM.Passenger_onboard_details;', 
+  TransactionBufferSpilloverSize: '1MB', 
+  ConnectionURL: 'jdbc:oracle:thin:@localhost:1521/orcl', 
+  TransactionBufferType: 'Memory', 
+  FilterTransactionBoundaries: true, 
+  SendBeforeImage: true, 
+  Password: 'oQ7AuMLFPz55u3k4kRRHTA==' ) 
+OUTPUT TO from_orcl_source;
+
+CREATE OR REPLACE STREAM from_cq_baggage_details OF from_cq_baggage_details_Type;
+
+CREATE OR REPLACE STREAM from_cq_confirmed_passenger_data OF from_cq_confirmed_passenger_data_Type;
+
+CREATE OR REPLACE CQ cq_baggage_details 
+INSERT INTO from_cq_baggage_details 
+SELECT to_string(data[0]) as passenger_name,to_int(data[1]) as Ticket_no,to_int(data[2]) as baggage_id,to_float(data[3]) as baggage_weight FROM from_Baggage_details f;
+
+CREATE OR REPLACE JUMPING WINDOW window_baggage_checking OVER from_cq_baggage_details 
+KEEP 4 ROWS 
+PARTITION BY Ticket_no;
+
+CREATE OR REPLACE CQ cq_confirmed_passenger_data 
+INSERT INTO from_cq_confirmed_passenger_data 
+SELECT to_string(data[0]) as passenger_name,to_int(data[1]) as Seat_number,to_int(data[2]) as Ticket_no,to_string(data[3]) as ticket_status FROM from_orcl_source f;
+
+CREATE OR REPLACE JUMPING WINDOW baggage_checking_window OVER from_cq_confirmed_passenger_data 
+KEEP 4 ROWS 
+PARTITION BY Ticket_no;
+
+CREATE OR REPLACE CQ cq_passengers_list 
+INSERT INTO from_cq_passengers_list 
+SELECT b.passenger_name,b.Seat_number,b.Ticket_no,b.ticket_status,c.baggage_id,c.baggage_weight FROM baggage_checking_window b join window_baggage_checking c on b.Ticket_no = c.Ticket_no;
+
+CREATE OR REPLACE TARGET confirmed_passengers_tgt USING Global.DatabaseWriter ( 
+  ConnectionRetryPolicy: 'retryInterval=30, maxRetries=3', 
+  BatchPolicy: 'EventCount:10,Interval:6', 
+  CommitPolicy: 'EventCount:10,Interval:6', 
+  DatabaseProviderType: 'Oracle', 
+  CheckPointTable: 'CHKPOINT', 
+  Password_encrypted: 'false', 
+  Username: 'striim', 
+  Tables: 'STRIIM.baggage_conformation;', 
+  StatementCacheSize: '50', 
+  ConnectionURL: 'jdbc:oracle:thin:@localhost:1521/orcl', 
+  PreserveSourceTransactionBoundary: 'false', 
+  Password: 'oQ7AuMLFPz55u3k4kRRHTA==', 
+  adapterName: 'DatabaseWriter' ) 
+INPUT FROM from_cq_passengers_list;
+
+END APPLICATION Oracle_Oracle_Jumping_Window;
+

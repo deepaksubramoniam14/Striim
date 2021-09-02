@@ -1,0 +1,86 @@
+
+CREATE APPLICATION Oracle2OracleDbCache;
+
+CREATE TYPE DBcache (
+ EMP_ID java.lang.Integer KEY,
+ EMP_NAME java.lang.String);
+
+CREATE OR REPLACE TARGET WithFilter_DBCache USING Global.DatabaseWriter ( 
+  ConnectionRetryPolicy: 'retryInterval=30, maxRetries=3', 
+  ParallelThreads: '', 
+  CheckPointTable: 'CHKPOINT', 
+  Password_encrypted: 'false', 
+  Username: 'striim', 
+  Tables: 'STRIIM.EMP,STRIIM.EMP_WITHOUTFILTER;', 
+  CommitPolicy: 'EventCount:1,Interval:60', 
+  StatementCacheSize: '50', 
+  DatabaseProviderType: 'Default', 
+  ConnectionURL: 'jdbc:oracle:thin:@localhost:1521/orcl', 
+  PreserveSourceTransactionBoundary: 'false', 
+  BatchPolicy: 'EventCount:1,Interval:60', 
+  Password: 'oQ7AuMLFPz55u3k4kRRHTA==' ) 
+INPUT FROM DBCACHECQ_out;
+
+CREATE SOURCE OracleDbCache_src USING Global.OracleReader ( 
+  TransactionBufferDiskLocation: '.striim/LargeBuffer', 
+  OutboundServerProcessName: 'WebActionXStream', 
+  DDLCaptureMode: 'All', 
+  Compression: false, 
+  ReaderType: 'LogMiner', 
+  connectionRetryPolicy: 'timeOut=30, retryInterval=30, maxRetries=3', 
+  FetchSize: 1, 
+  Password_encrypted: 'false', 
+  SupportPDB: false, 
+  QuiesceMarkerTable: 'QUIESCEMARKER', 
+  Tables: 'STRIIM.EMP;', 
+  Username: 'striim', 
+  DictionaryMode: 'OnlineCatalog', 
+  QueueSize: 2048, 
+  CommittedTransactions: true, 
+  XstreamTimeOut: 600, 
+  TransactionBufferSpilloverSize: '1MB', 
+  ConnectionURL: 'jdbc:oracle:thin:@localhost:1521/orcl', 
+  TransactionBufferType: 'Memory', 
+  FilterTransactionBoundaries: true, 
+  SendBeforeImage: true, 
+  Password: 'oQ7AuMLFPz55u3k4kRRHTA==', 
+  DatabaseRole: 'Primary' ) 
+OUTPUT TO OracleDbCache_src_Op;
+
+CREATE CACHE DBCACHE USING Global.DatabaseReader ( 
+  Tables: 'STRIIM.MASTER;', 
+  DatabaseProviderType: 'Default', 
+  ConnectionURL: 'jdbc:oracle:thin:@localhost:1521/orcl', 
+  QuiesceOnILCompletion: false, 
+  Password_encrypted: 'false', 
+  FetchSize: 5, 
+  Username: 'striim', 
+  Password: 'oQ7AuMLFPz55u3k4kRRHTA==' ) 
+QUERY ( 
+  keytomap: 'EMP_ID',
+  skipinvalid: 'false',
+  refreshinterval: '3 SECOND' ) 
+OF DBcache;
+
+CREATE TARGET DBFilter USING Global.DatabaseWriter ( 
+  Tables: 'STRIIM.EMP,STRIIM.EMP_FILTER;', 
+  ConnectionRetryPolicy: 'retryInterval=30, maxRetries=3', 
+  ParallelThreads: '', 
+  CheckPointTable: 'CHKPOINT', 
+  Password_encrypted: 'false', 
+  Username: 'striim', 
+  CommitPolicy: 'EventCount:1,Interval:60', 
+  StatementCacheSize: '50', 
+  DatabaseProviderType: 'Default', 
+  ConnectionURL: 'jdbc:oracle:thin:@localhost:1521/orcl', 
+  PreserveSourceTransactionBoundary: 'false', 
+  BatchPolicy: 'EventCount:1,Interval:60', 
+  Password: 'oQ7AuMLFPz55u3k4kRRHTA==' ) 
+INPUT FROM OracleDbCache_src_Op;
+
+CREATE OR REPLACE CQ DBCACHECQ 
+INSERT INTO DBCACHECQ_out 
+SELECT o.* FROM OracleDbCache_src_op o join DBCACHE E on to_int(o.data[0])=to_int(E.EMP_ID);
+
+END APPLICATION Oracle2OracleDbCache;
+

@@ -1,0 +1,48 @@
+
+CREATE APPLICATION OracleDDLtoPostgres EXCEPTIONHANDLER (AdapterException: 'STOP', ArithmeticException: 'STOP', ClassCastException: 'STOP', ConnectionException: 'STOP', InvalidDataException: 'STOP', NullPointerException: 'STOP', NumberFormatException: 'STOP', SystemException: 'STOP', UnExpectedDDLException: 'IGNORE', UnknownException: 'STOP') ;
+
+CREATE OR REPLACE SOURCE Oracle_source USING Global.OracleReader ( 
+  TransactionBufferDiskLocation: '.striim/LargeBuffer', 
+  adapterName: 'OracleReader', 
+  OutboundServerProcessName: 'WebActionXStream', 
+  DatabaseRole: 'PRIMARY', 
+  DDLCaptureMode: 'All', 
+  Tables: 'STRIIM.CUSTOMERS_2', 
+  Compression: false, 
+  ReaderType: 'LogMiner', 
+  FetchSize: 1, 
+  connectionRetryPolicy: 'timeOut=30, retryInterval=30, maxRetries=3', 
+  Password_encrypted: 'false', 
+  SupportPDB: false, 
+  QuiesceMarkerTable: 'QUIESCEMARKER', 
+  CommittedTransactions: true, 
+  QueueSize: 2048, 
+  XstreamTimeOut: 600, 
+  DictionaryMode: 'OfflineCatalog', 
+  Username: 'striim', 
+  TransactionBufferSpilloverSize: '1MB', 
+  ConnectionURL: 'jdbc:oracle:thin:@localhost:1521/orcl', 
+  TransactionBufferType: 'Memory', 
+  FilterTransactionBoundaries: true, 
+  SendBeforeImage: true, 
+  Password: 'oQ7AuMLFPz55u3k4kRRHTA==' ) 
+OUTPUT TO orcl_source_stream;
+
+CREATE OR REPLACE TARGET Postgres_DDL_tar USING Global.DatabaseWriter ( 
+  ConnectionRetryPolicy: 'retryInterval=30, maxRetries=3', 
+  CheckPointTable: 'CHKPOINT', 
+  Password_encrypted: 'false', 
+  CommitPolicy: 'EventCount:1,Interval:3', 
+  Tables: 'STRIIM.CUSTOMERS_2,STRIIM.CUSTOMERS_3', 
+  Username: 'striim', 
+  StatementCacheSize: '50', 
+  ConnectionURL: 'jdbc:postgresql://localhost:5432/striimrepo', 
+  DatabaseProviderType: 'Postgres', 
+  PreserveSourceTransactionBoundary: 'false', 
+  BatchPolicy: 'EventCount:1,Interval:3', 
+  Password: 'oQ7AuMLFPz55u3k4kRRHTA==', 
+  adapterName: 'DatabaseWriter' ) 
+INPUT FROM orcl_source_stream;
+
+END APPLICATION OracleDDLtoPostgres;
+

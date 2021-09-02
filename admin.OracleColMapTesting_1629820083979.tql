@@ -1,0 +1,106 @@
+
+CREATE APPLICATION OracleColMapTesting;
+
+CREATE OR REPLACE SOURCE cmoraclesrc USING Global.OracleReader ( 
+  TransactionBufferDiskLocation: '.striim/LargeBuffer', 
+  adapterName: 'OracleReader', 
+  OutboundServerProcessName: 'WebActionXStream', 
+  DatabaseRole: 'PRIMARY', 
+  DDLCaptureMode: 'All', 
+  Compression: false, 
+  ReaderType: 'LogMiner', 
+  FetchSize: 1, 
+  connectionRetryPolicy: 'timeOut=30, retryInterval=30, maxRetries=3', 
+  Password_encrypted: 'false', 
+  SupportPDB: false, 
+  QuiesceMarkerTable: 'QUIESCEMARKER', 
+  CommittedTransactions: true, 
+  QueueSize: 2048, 
+  XstreamTimeOut: 600, 
+  DictionaryMode: 'OnlineCatalog', 
+  Username: 'striim', 
+  TransactionBufferSpilloverSize: '1MB', 
+  ConnectionURL: 'jdbc:oracle:thin:@localhost:1521/orcl', 
+  TransactionBufferType: 'Memory', 
+  Tables: 'STRIIM.EMP (-EMP_CITY)', 
+  FilterTransactionBoundaries: true, 
+  SendBeforeImage: true, 
+  Password: 'oQ7AuMLFPz55u3k4kRRHTA==' ) 
+OUTPUT TO srcop;
+
+CREATE OR REPLACE TARGET FileTgt USING Global.FileWriter ( 
+  directory: 'E:/Striim_3.10.1ns/Striim', 
+  flushpolicy: 'EventCount:5,Interval:3s', 
+  DataEncryptionKeyPassphrase: '', 
+  rolloveronddl: 'true', 
+  encryptionpolicy: '', 
+  rolloverpolicy: 'EventCount:5,Interval:3s', 
+  filename: 'Columnmap.txt' ) 
+FORMAT USING Global.DSVFormatter  ( 
+  quotecharacter: '\"', 
+  columndelimiter: ',', 
+  nullvalue: 'NULL', 
+  usequotes: 'false', 
+  rowdelimiter: '\n', 
+  standard: 'none', 
+  header: 'false' ) 
+INPUT FROM srcop;
+
+CREATE OR REPLACE TARGET BQTGT USING Global.BigQueryWriter ( 
+  ColumnDelimiter: '|', 
+  Tables: 'STRIIM.EMP,STRIIM.EMP COLUMNMAP(EMP_ID=EMP_ID,EMP_NAME=EMP_NAME)', 
+  BatchPolicy: 'eventCount:1, Interval:1', 
+  NullMarker: 'NULL', 
+  streamingUpload: 'false', 
+  Encoding: 'UTF-8', 
+  ConnectionRetryPolicy: 'totalTimeout=600, initialRetryDelay=10, retryDelayMultiplier=2.0, maxRetryDelay=60 , maxAttempts=5, jittered=True, initialRpcTimeout=10, rpcTimeoutMultiplier=2.0, maxRpcTimeout=30', 
+  AllowQuotedNewLines: 'false', 
+  optimizedMerge: 'false', 
+  projectId: 'striim-300013', 
+  TransportOptions: 'connectionTimeout=300, readTimeout=120', 
+  adapterName: 'BigQueryWriter', 
+  Mode: 'APPENDONLY', 
+  StandardSQL: 'true', 
+  includeInsertId: 'true', 
+  QuoteCharacter: '\"', 
+  ServiceAccountKey: 'E:/Striim_3.10.1ns/Striim/striim-300013-01d36ff98e53.json' ) 
+INPUT FROM srcop;
+
+CREATE OR REPLACE TARGET sysouttgt USING Global.SysOut ( 
+  name: 'sys' ) 
+INPUT FROM srcop;
+
+CREATE OR REPLACE TARGET TGTSQL USING Global.DatabaseWriter ( 
+  Password: '0i9+i5sVj3tqk9b98B0Z4A==', 
+  ConnectionRetryPolicy: 'retryInterval=30, maxRetries=3', 
+  Tables: 'STRIIM.EMP,STRIIM.EMP COLUMNMAP(EMP_ID=EMP_ID,EMP_NAME=EMP_NAME)', 
+  CheckPointTable: 'CHKPOINT', 
+  Password_encrypted: 'false', 
+  ConnectionURL: 'jdbc:sqlserver://localhost:1433;DatabaseName=striim', 
+  StatementCacheSize: '50', 
+  DatabaseProviderType: 'Default', 
+  Username: 'sa', 
+  CommitPolicy: 'EventCount:1,Interval:6', 
+  PreserveSourceTransactionBoundary: 'false', 
+  BatchPolicy: 'EventCount:1,Interval:6', 
+  adapterName: 'DatabaseWriter' ) 
+INPUT FROM srcop;
+
+CREATE OR REPLACE TARGET TGTOracle USING Global.DatabaseWriter ( 
+  ConnectionRetryPolicy: 'retryInterval=30, maxRetries=3', 
+  Tables: 'STRIIM.EMP,STRIIM1.EMP COLUMNMAP(EMP_ID=EMP_ID,EMP_NAME=EMP_NAME)', 
+  DatabaseProviderType: 'Oracle', 
+  CheckPointTable: 'CHKPOINT', 
+  Password_encrypted: 'false', 
+  StatementCacheSize: '50', 
+  CommitPolicy: 'EventCount:1,Interval:6', 
+  ConnectionURL: 'jdbc:oracle:thin:@localhost:1521/orcl', 
+  Password: 'OJF6OhiOlfTAPxIiK8dYOA==', 
+  Username: 'striim1', 
+  PreserveSourceTransactionBoundary: 'false', 
+  BatchPolicy: 'EventCount:1,Interval:6', 
+  adapterName: 'DatabaseWriter' ) 
+INPUT FROM srcop;
+
+END APPLICATION OracleColMapTesting;
+

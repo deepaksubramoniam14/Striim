@@ -1,0 +1,105 @@
+
+CREATE APPLICATION Oracle2OracleFileCache;
+
+CREATE TYPE FileCache (
+ EMP_ID java.lang.String KEY,
+ STATUS java.lang.String);
+
+CREATE SOURCE OracleFC_inp USING Global.OracleReader ( 
+  TransactionBufferDiskLocation: '.striim/LargeBuffer', 
+  OutboundServerProcessName: 'WebActionXStream', 
+  DDLCaptureMode: 'All', 
+  Compression: false, 
+  ReaderType: 'LogMiner', 
+  connectionRetryPolicy: 'timeOut=30, retryInterval=30, maxRetries=3', 
+  FetchSize: 1, 
+  Password_encrypted: 'false', 
+  SupportPDB: false, 
+  QuiesceMarkerTable: 'QUIESCEMARKER', 
+  Tables: 'STRIIM.EMP;', 
+  Username: 'striim', 
+  DictionaryMode: 'OnlineCatalog', 
+  QueueSize: 2048, 
+  CommittedTransactions: true, 
+  XstreamTimeOut: 600, 
+  TransactionBufferSpilloverSize: '1MB', 
+  ConnectionURL: 'jdbc:oracle:thin:@localhost:1521/orcl', 
+  TransactionBufferType: 'Memory', 
+  FilterTransactionBoundaries: true, 
+  SendBeforeImage: true, 
+  Password: 'oQ7AuMLFPz55u3k4kRRHTA==', 
+  DatabaseRole: 'Primary' ) 
+OUTPUT TO OracleFC_out;
+
+CREATE OR REPLACE STREAM FCCQ1_out_1 OF Global.WAEvent;
+
+CREATE CACHE File_Cache USING Global.FileReader ( 
+  positionbyeof: true, 
+  rolloverstyle: 'Default', 
+  blocksize: 64, 
+  skipbom: true, 
+  wildcard: 'Master.csv', 
+  includesubdirectories: false, 
+  directory: 'E:/Striim_3.10.3.2/Striim/' ) 
+PARSE USING Global.DSVParser ( 
+  header: false,
+  rowdelimiter: '\n',
+  ignoremultiplerecordbegin: 'true',
+  columndelimiter: ',',
+  trimquote: true,
+  quoteset: '\"',
+  columndelimittill: '-1',
+  ignoreemptycolumn: false,
+  commentcharacter: '',
+  ignorerowdelimiterinquote: false,
+  headerlineno: 0,
+  nocolumndelimiter: false,
+  separator: ':',
+  linenumber: '-1',
+  trimwhitespace: false,
+  charset: 'UTF-8',
+  blockascompleterecord: false ) 
+QUERY ( 
+  keytomap: 'EMP_ID',
+  skipinvalid: 'false',
+  refreshinterval: '3 SECOND' ) 
+OF FileCache;
+
+CREATE TARGET FC_WithoutFilter_in USING Global.DatabaseWriter ( 
+  ConnectionRetryPolicy: 'retryInterval=30, maxRetries=3', 
+  ParallelThreads: '', 
+  CheckPointTable: 'CHKPOINT', 
+  Password_encrypted: 'false', 
+  Username: 'striim', 
+  Tables: 'STRIIM.EMP,STRIIM.EMP_WITHOUTFILTER;', 
+  CommitPolicy: 'EventCount:1,Interval:60', 
+  StatementCacheSize: '50', 
+  DatabaseProviderType: 'Default', 
+  ConnectionURL: 'jdbc:oracle:thin:@localhost:1521/orcl', 
+  PreserveSourceTransactionBoundary: 'false', 
+  BatchPolicy: 'EventCount:1,Interval:60', 
+  Password: 'oQ7AuMLFPz55u3k4kRRHTA==' ) 
+INPUT FROM OracleFC_out;
+
+CREATE OR REPLACE TARGET FC_Filter_in USING Global.DatabaseWriter ( 
+  ConnectionRetryPolicy: 'retryInterval=30, maxRetries=3', 
+  Tables: 'STRIIM.EMP,STRIIM.EMP_FILTER;', 
+  CheckPointTable: 'CHKPOINT', 
+  Password_encrypted: 'false', 
+  Username: 'striim', 
+  StatementCacheSize: '50', 
+  CommitPolicy: 'EventCount:1,Interval:60', 
+  DatabaseProviderType: 'Default', 
+  ConnectionURL: 'jdbc:oracle:thin:@localhost:1521/orcl', 
+  PreserveSourceTransactionBoundary: 'false', 
+  BatchPolicy: 'EventCount:1,Interval:60', 
+  Password: 'oQ7AuMLFPz55u3k4kRRHTA==', 
+  adapterName: 'DatabaseWriter' ) 
+INPUT FROM FCCQ1_out_1;
+
+CREATE OR REPLACE CQ FCCQ1 
+INSERT INTO FCCQ1_out_1 
+SELECT o.* FROM OracleFC_out o join File_cache E on to_string(o.data[0])=to_string(E.EMP_ID);
+
+END APPLICATION Oracle2OracleFileCache;
+

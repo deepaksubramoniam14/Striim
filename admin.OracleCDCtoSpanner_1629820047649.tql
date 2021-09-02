@@ -1,0 +1,39 @@
+
+CREATE APPLICATION OracleCDCtoSpanner;
+
+CREATE SOURCE OracleCDCtoSpanner USING Global.OracleReader ( 
+  TransactionBufferDiskLocation: '.striim/LargeBuffer', 
+  OutboundServerProcessName: 'WebActionXStream', 
+  Password: 'qk4CEA+DrfVN4RNrN5sjvsbEteGBwe3dVUE1ova5fmw=', 
+  DDLCaptureMode: 'All', 
+  Compression: false, 
+  ReaderType: 'LogMiner', 
+  connectionRetryPolicy: 'timeOut=30, retryInterval=30, maxRetries=3', 
+  Tables: 'STRIIM.MYTABLE', 
+  Password_encrypted: 'false', 
+  SupportPDB: false, 
+  QuiesceMarkerTable: 'QUIESCEMARKER', 
+  Username: 'striim', 
+  DictionaryMode: 'OnlineCatalog', 
+  QueueSize: 2048, 
+  CommittedTransactions: true, 
+  XstreamTimeOut: 600, 
+  FetchSize: 10, 
+  TransactionBufferSpilloverSize: '1MB', 
+  ConnectionURL: 'jdbc:oracle:thin:@localhost:1521/orcl', 
+  TransactionBufferType: 'Memory', 
+  FilterTransactionBoundaries: true, 
+  SendBeforeImage: true ) 
+OUTPUT TO OracleCDCtoSpannerIP;
+
+CREATE TARGET OracleCDCtoSpanner_tgt USING Global.SpannerWriter ( 
+  BatchPolicy: 'EventCount: 10, Interval: 6s', 
+  CheckpointTable: 'CHKPOINT', 
+  ParallelThreads: '', 
+  InstanceID: 'striim-spanner', 
+  Tables: 'STRIIM.MYTABLE,striimspanner.MYTABLE COLUMNMAP(COL1=COL1,COL2=COL2,COL3=COL3,COL4=COL4,COL5=COL5)', 
+  ServiceAccountKey: 'E:\\Striim_3.10.1ns\\Striim\\striim-296201-ea7603e8560f.json' ) 
+INPUT FROM OracleCDCtoSpannerIP;
+
+END APPLICATION OracleCDCtoSpanner;
+

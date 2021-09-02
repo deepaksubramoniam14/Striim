@@ -1,0 +1,56 @@
+
+CREATE APPLICATION OracleCDCToSnowFlake RECOVERY 1 MINUTE INTERVAL;
+
+CREATE OR REPLACE SOURCE OracleCdcToSnowFlakeSrc USING Global.OracleReader ( 
+  ReaderType: 'LogMiner', 
+  Password_encrypted: 'false', 
+  SupportPDB: false, 
+  QuiesceMarkerTable: 'QUIESCEMARKER', 
+  CommittedTransactions: true, 
+  QueueSize: 2048, 
+  TransactionBufferType: 'Memory', 
+  TransactionBufferDiskLocation: '.striim/LargeBuffer', 
+  adapterName: 'OracleReader', 
+  OutboundServerProcessName: 'WebActionXStream', 
+  DatabaseRole: 'PRIMARY', 
+  DDLCaptureMode: 'All', 
+  Compression: false, 
+  FetchSize: 1, 
+  connectionRetryPolicy: 'timeOut=30, retryInterval=30, maxRetries=3', 
+  StartSCN: '4277853', 
+  XstreamTimeOut: 600, 
+  DictionaryMode: 'OnlineCatalog', 
+  Username: 'striim', 
+  TransactionBufferSpilloverSize: '1MB', 
+  Tables: 'STRIIM.EMP', 
+  ConnectionURL: 'jdbc:oracle:thin:@localhost:1521/orcl', 
+  FilterTransactionBoundaries: true, 
+  SendBeforeImage: true, 
+  Password: 'oQ7AuMLFPz55u3k4kRRHTA==' ) 
+OUTPUT TO OracleCdcToSnowFlakeSrc_out;
+
+CREATE OR REPLACE CQ OracleCDCToSFCQ1 
+INSERT INTO OracleCDCToSFCQ1_out 
+SELECT data[0] as EMP_ID,data[1] as EMP_NAME, data[2] as EMP_CITY FROM OracleCdcToSnowFlakeSrc_out o;
+
+CREATE TARGET OracleCdcToSnowFlakeTgt USING Global.SnowflakeWriter ( 
+  password_encrypted: 'false', 
+  s3SecretAccessKey: '', 
+  azureContainerName: 'striim-snowflake-container', 
+  optimizedMerge: 'false', 
+  columnDelimiter: '|', 
+  s3Region: 'us-west-1', 
+  tables: 'STRIIM.STRIIM.EMP;', 
+  appendOnly: 'false', 
+  connectionUrl: 'jdbc:snowflake://iu08799.us-central1.gcp.snowflakecomputing.com/?db=STRIIM&schema=STRIIM', 
+  password: 'xeolis5XND+NaPLzUmOmfQ==', 
+  uploadPolicy: 'eventcount:10,interval:5s', 
+  externalStageType: 'Local', 
+  azureAccountAccessKey: '', 
+  fileFormatOptions: 'null_if = \"\"', 
+  username: 'STRIIMGCP10', 
+  s3BucketName: 'striim-snowflake-bucket' ) 
+INPUT FROM OracleCDCToSFCQ1_out;
+
+END APPLICATION OracleCDCToSnowFlake;
+

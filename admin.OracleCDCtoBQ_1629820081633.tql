@@ -1,0 +1,53 @@
+
+CREATE APPLICATION OracleCDCtoBQ;
+
+CREATE OR REPLACE SOURCE OracleSrc_cdc_bq USING Global.OracleReader ( 
+  connectionRetryPolicy: 'timeOut=3, retryInterval=3, maxRetries=3', 
+  ReaderType: 'LogMiner', 
+  Password_encrypted: 'false', 
+  SupportPDB: false, 
+  QuiesceMarkerTable: 'QUIESCEMARKER', 
+  CommittedTransactions: true, 
+  QueueSize: 2048, 
+  TransactionBufferType: 'Memory', 
+  TransactionBufferDiskLocation: '.striim/LargeBuffer', 
+  adapterName: 'OracleReader', 
+  OutboundServerProcessName: 'WebActionXStream', 
+  StartSCN: '8443256', 
+  DatabaseRole: 'PRIMARY', 
+  DDLCaptureMode: 'All', 
+  Compression: false, 
+  FetchSize: 1, 
+  XstreamTimeOut: 600, 
+  DictionaryMode: 'OnlineCatalog', 
+  Username: 'striim', 
+  TransactionBufferSpilloverSize: '1MB', 
+  ConnectionURL: 'jdbc:oracle:thin:@localhost:1521/orcl', 
+  Tables: 'STRIIM.EMP (-EMP_CITY)', 
+  FilterTransactionBoundaries: true, 
+  SendBeforeImage: true, 
+  Password: 'oQ7AuMLFPz55u3k4kRRHTA==' ) 
+OUTPUT TO Oracle_cdc_tgt;
+
+CREATE OR REPLACE TARGET tgt_oracle_cdc USING Global.BigQueryWriter ( 
+  ColumnDelimiter: '|', 
+  NullMarker: 'NULL', 
+  streamingUpload: 'false', 
+  Tables: 'STRIIM.EMP,Striim.EMP KEYCOLUMNS(EMP_ID) COLUMNMAP(EMP_ID=EMP_ID,EMP_NAME=EMP_NAME);', 
+  projectId: 'Striim-305719', 
+  Encoding: 'UTF-8', 
+  AllowQuotedNewLines: 'false', 
+  optimizedMerge: 'false', 
+  ServiceAccountKey: 'E:/Striim_3.10.3.2/Striim/striim-305719-6bb4f00a46eb.json', 
+  BatchPolicy: 'eventCount:10, Interval:6', 
+  adapterName: 'BigQueryWriter', 
+  Mode: 'APPENDONLY', 
+  ConnectionRetryPolicy: 'totalTimeout=60, initialRetryDelay=10, retryDelayMultiplier=2.0, maxRetryDelay=60 , maxAttempts=5, jittered=True, initialRpcTimeout=10, rpcTimeoutMultiplier=2.0, maxRpcTimeout=30', 
+  TransportOptions: 'connectionTimeout=30, readTimeout=60', 
+  StandardSQL: 'true', 
+  includeInsertId: 'true', 
+  QuoteCharacter: '\"' ) 
+INPUT FROM Oracle_cdc_tgt;
+
+END APPLICATION OracleCDCtoBQ;
+

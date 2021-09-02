@@ -1,0 +1,36 @@
+
+CREATE APPLICATION OracleCdctoPostgres USE EXCEPTIONSTORE TTL : '7d' ;
+
+CREATE SOURCE OraclePostgresCDCSrc USING Global.OracleReader ( 
+  Tables: 'STRIIM.%', 
+  Compression: false, 
+  ReaderType: 'LogMiner', 
+  FilterTransactionState: true, 
+  FetchSize: 1, 
+  Password_encrypted: 'false', 
+  QueueSize: 2048, 
+  CommittedTransactions: true, 
+  Username: 'striim', 
+  DictionaryMode: 'OnlineCatalog', 
+  Password: 'oQ7AuMLFPz55u3k4kRRHTA==', 
+  ConnectionURL: 'jdbc:oracle:thin:@//localhost:1521/orcl' ) 
+OUTPUT TO OraclePostgresCDCSrc_ChangeDataStream;
+
+CREATE OR REPLACE TARGET OracleCdctoPostgres_PostgresTarget1 USING Global.DatabaseWriter ( 
+  ConnectionRetryPolicy: 'retryInterval=30, maxRetries=3', 
+  BatchPolicy: 'EventCount:10,Interval:60', 
+  CommitPolicy: 'EventCount:10,Interval:60', 
+  Tables: 'STRIIM.%,STRIIM.%', 
+  CheckPointTable: 'CHKPOINT', 
+  Password_encrypted: 'false', 
+  Username: 'striim', 
+  StatementCacheSize: '50', 
+  DatabaseProviderType: 'Default', 
+  ConnectionURL: 'jdbc:postgresql://localhost:5432/striimrepo?', 
+  PreserveSourceTransactionBoundary: 'false', 
+  Password: 'oQ7AuMLFPz55u3k4kRRHTA==', 
+  adapterName: 'DatabaseWriter' ) 
+INPUT FROM OraclePostgresCDCSrc_ChangeDataStream;
+
+END APPLICATION OracleCdctoPostgres;
+
